@@ -70,7 +70,11 @@ import {
   type PosStep,
 } from "@/lib/pos";
 import { PosLiveBadge, type PosLiveState } from "@/components/PosLiveStatus";
-import { PosProtocolCard, PosTransactionsCard } from "@/components/PosTransactionsCard";
+import {
+  CashierPinCard,
+  PosProtocolCard,
+  PosTransactionsCard,
+} from "@/components/PosTransactionsCard";
 import {
   agentHealth,
   getAgentHttpUrl,
@@ -1568,6 +1572,8 @@ function AdminPos({ onLock }: { onLock: () => void }) {
       </div>
 
       <PosTransactionsCard />
+
+      <CashierPinCard />
 
       <PosProtocolCard />
 

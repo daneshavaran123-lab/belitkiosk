@@ -32,6 +32,7 @@ namespace PosBridge
         private static string _baseDir;
         private static string _configPath;
         private static readonly object ConfigLock = new object();
+        private static readonly CashierPin Cashier = new CashierPin();
         private static readonly JavaScriptSerializer Json = new JavaScriptSerializer();
         // نگه‌داشتن در فیلد ایستا تا GC آن را آزاد نکند (یک نسخه از سرویس)
         private static Mutex _singleInstance;
@@ -165,7 +166,8 @@ namespace PosBridge
                     return;
                 }
 
-                if (post && (path == "/pay" || path == "/config" || path == "/print" || path == "/cancel" || path == "/transactions/review") &&
+                if (post && (path == "/pay" || path == "/config" || path == "/print" || path == "/cancel" ||
+                             path == "/transactions/review" || path == "/cash/authorize" || path == "/cash/pin") &&
                     !(ctx.Request.ContentType ?? "").StartsWith("application/json", StringComparison.OrdinalIgnoreCase))
                 {
                     WriteJson(ctx, 415, Fail("بدنهٔ درخواست باید JSON باشد"));
@@ -316,6 +318,22 @@ namespace PosBridge
                             break;
                         }
 
+                    case "/cash/status":
+                        WriteJson(ctx, 200, new Dictionary<string, object>
+                        {
+                            { "pinConfigured", !string.IsNullOrEmpty(_config.CashierPinHash) },
+                            { "lockedSeconds", Cashier.LockedSeconds() }
+                        });
+                        break;
+
+                    case "/cash/authorize":
+                        HandleCashAuthorize(ctx, post);
+                        break;
+
+                    case "/cash/pin":
+                        HandleCashPin(ctx, post);
+                        break;
+
                     case "/transactions/review":
                         {
                             var req = ReadJson(ctx);
@@ -336,6 +354,120 @@ namespace PosBridge
             {
                 PosLog.Error("http", ex.Message);
                 try { WriteJson(ctx, 500, Fail("خطای داخلی سرویس پل")); } catch { /* ignore */ }
+            }
+        }
+
+        /// <summary>
+        /// تأیید پرداخت نقدی با رمز متصدی. فقط با رمز درست، فروش نقدی در دفتر ثبت و به کیوسک
+        /// اجازهٔ صدور بلیط داده می‌شود؛ تلاش‌های نادرست شمرده و پس از ۵ بار قفل می‌شود.
+        /// </summary>
+        private static void HandleCashAuthorize(HttpListenerContext ctx, bool post)
+        {
+            if (!post) { WriteJson(ctx, 405, Fail("POST لازم است")); return; }
+            var req = ReadJson(ctx);
+            if (req == null) { WriteJson(ctx, 400, Fail("بدنهٔ درخواست نامعتبر است")); return; }
+
+            long amountToman;
+            var invoice = (Convert.ToString(Get(req, "invoiceNumber")) ?? "").Trim();
+            if (!TryLong(Get(req, "amountToman"), out amountToman) || amountToman <= 0 || amountToman * 10 > _config.MaxAmountRial)
+            { WriteJson(ctx, 400, Fail("مبلغ نامعتبر است")); return; }
+            if (invoice.Length == 0 || invoice.Length > 64)
+            { WriteJson(ctx, 400, Fail("شمارهٔ فاکتور نامعتبر است")); return; }
+
+            var check = Cashier.Check(Convert.ToString(Get(req, "pin")), _config.CashierPinHash);
+            if (check.Outcome != CashierPin.Outcome.Ok)
+            {
+                WriteJson(ctx, 200, CashFailure(check, "رمز متصدی نادرست است"));
+                if (check.Outcome != CashierPin.Outcome.NotConfigured)
+                    PosLog.Warn("cash", "رمز نادرست متصدی برای فاکتور " + invoice + (check.Outcome == CashierPin.Outcome.Locked ? " — ورود رمز قفل شد" : ""));
+                return;
+            }
+
+            var now = PosTransaction.Now();
+            var tx = new PosTransaction
+            {
+                Id = "cash-" + Guid.NewGuid().ToString("N"),
+                InvoiceNumber = invoice,
+                AmountRial = amountToman * 10,
+                Status = "cash",
+                Via = "cash",
+                Message = "پرداخت نقدی با تأیید متصدی",
+                CreatedAt = now,
+                CompletedAt = now
+            };
+            _journal.Save(tx);
+            PosLog.Info("cash", "پرداخت نقدی فاکتور " + invoice + " به مبلغ " + amountToman + " تومان با رمز متصدی تأیید شد");
+            WriteJson(ctx, 200, new Dictionary<string, object>
+            {
+                { "ok", true }, { "authorizationId", tx.Id }, { "message", "پرداخت نقدی تأیید شد" }
+            });
+        }
+
+        /// <summary>تنظیم، تغییر یا حذف رمز متصدی؛ اگر رمزی تنظیم شده باشد، رمز فعلی لازم است</summary>
+        private static void HandleCashPin(HttpListenerContext ctx, bool post)
+        {
+            if (!post) { WriteJson(ctx, 405, Fail("POST لازم است")); return; }
+            var req = ReadJson(ctx);
+            if (req == null) { WriteJson(ctx, 400, Fail("بدنهٔ درخواست نامعتبر است")); return; }
+            var next = (Convert.ToString(Get(req, "newPin")) ?? "").Trim();
+            if (next.Length > 0 && !CashierPin.IsValidPin(next))
+            { WriteJson(ctx, 400, Fail("رمز متصدی باید ۴ تا ۸ رقم باشد")); return; }
+
+            lock (ConfigLock)
+            {
+                if (!string.IsNullOrEmpty(_config.CashierPinHash))
+                {
+                    var check = Cashier.Check(Convert.ToString(Get(req, "currentPin")), _config.CashierPinHash);
+                    if (check.Outcome != CashierPin.Outcome.Ok)
+                    {
+                        WriteJson(ctx, 200, CashFailure(check, "رمز فعلی متصدی نادرست است"));
+                        PosLog.Warn("cash", "تلاش برای تغییر رمز متصدی با رمز فعلی نادرست");
+                        return;
+                    }
+                }
+                else if (next.Length == 0)
+                {
+                    WriteJson(ctx, 400, Fail("رمز جدید را وارد کنید"));
+                    return;
+                }
+
+                _config.CashierPinHash = next.Length == 0 ? "" : CashierPin.Hash(next);
+                _config.Save(_configPath);
+            }
+
+            var enabled = next.Length > 0;
+            PosLog.Info("cash", enabled ? "رمز متصدی تنظیم شد" : "رمز متصدی حذف شد؛ پرداخت نقدی غیرفعال است");
+            WriteJson(ctx, 200, new Dictionary<string, object>
+            {
+                { "ok", true },
+                { "pinConfigured", enabled },
+                { "message", enabled ? "رمز متصدی ذخیره شد" : "رمز متصدی حذف شد؛ پرداخت نقدی غیرفعال شد" }
+            });
+        }
+
+        private static Dictionary<string, object> CashFailure(CashierPin.CheckResult check, string wrongMessage)
+        {
+            switch (check.Outcome)
+            {
+                case CashierPin.Outcome.NotConfigured:
+                    return new Dictionary<string, object>
+                    {
+                        { "ok", false }, { "code", "NOT_CONFIGURED" },
+                        { "message", "رمز متصدی تنظیم نشده است؛ پرداخت نقدی از پنل مدیریت فعال می‌شود" }
+                    };
+                case CashierPin.Outcome.Locked:
+                    return new Dictionary<string, object>
+                    {
+                        { "ok", false }, { "code", "LOCKED" }, { "retryAfterSeconds", check.RetryAfterSeconds },
+                        { "message", "به‌دلیل تلاش‌های نادرست، ورود رمز تا " +
+                            Math.Max(1, (check.RetryAfterSeconds + 59) / 60) + " دقیقه قفل است" }
+                    };
+                default:
+                    return new Dictionary<string, object>
+                    {
+                        { "ok", false }, { "code", "WRONG_PIN" }, { "remainingAttempts", check.RemainingAttempts },
+                        { "message", wrongMessage + " (" + check.RemainingAttempts + " تلاش دیگر)" }
+                    };
             }
         }
 

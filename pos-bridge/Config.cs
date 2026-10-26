@@ -35,6 +35,12 @@ namespace PosBridge
         public string DevicePassword = "";
 
         /// <summary>
+        /// هش رمز متصدی برای تأیید پرداخت نقدی (PBKDF2، از پنل مدیریت تنظیم می‌شود). خالی یعنی
+        /// پرداخت نقدی در کیوسک غیرفعال است. اگر رمز فراموش شد، این مقدار را در فایل خالی کنید.
+        /// </summary>
+        public string CashierPinHash = "";
+
+        /// <summary>
         /// توکن دسترسی؛ اگر تنظیم شود همهٔ مسیرها به‌جز /health فقط با هدر X-Pos-Token پاسخ می‌دهند.
         /// همین مقدار را در «پنل مدیریت ← تنظیمات کارت‌خوان» وارد کنید.
         /// </summary>
@@ -125,6 +131,7 @@ namespace PosBridge
             str("model", v => cfg.Model = v);
             str("firmware", v => cfg.Firmware = v);
             str("devicePassword", v => cfg.DevicePassword = v);
+            str("cashierPinHash", v => cfg.CashierPinHash = v);
             str("accessToken", v => cfg.AccessToken = v);
             str("signCode", v => cfg.SignCode = v);
             str("comPort", v => cfg.ComPort = v);
@@ -257,6 +264,7 @@ namespace PosBridge
                 Kv("model", Model),
                 Kv("firmware", Firmware),
                 Kv("devicePassword", DevicePassword),
+                Kv("cashierPinHash", CashierPinHash),
                 Kv("accessToken", AccessToken),
                 Kv("signCode", SignCode),
                 Kv("pcposAppId", PcposAppId),

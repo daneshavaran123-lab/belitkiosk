@@ -18,6 +18,7 @@
     <Compile Include="../../TransactionJournal.cs" Link="Bridge/TransactionJournal.cs" />
     <Compile Include="../../FlatJson.cs" Link="Bridge/FlatJson.cs" />
     <Compile Include="../../PosLog.cs" Link="Bridge/PosLog.cs" />
+    <Compile Include="../../CashierPin.cs" Link="Bridge/CashierPin.cs" />
   </ItemGroup>
 
   <ItemGroup>

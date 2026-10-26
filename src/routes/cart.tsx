@@ -11,7 +11,9 @@ import { Toaster } from "@/components/ui/sonner";
 import { formatToman } from "@/lib/money";
 import {
   newTransactionId,
+  posAuthorizeCash,
   posCancel,
+  posCashStatus,
   posPay,
   posPrintTicket,
   posTransactionStatus,
@@ -20,10 +22,10 @@ import {
 } from "@/lib/pos";
 import { agentPay, agentStatusLabel, getPayBackend } from "@/lib/pos-agent";
 import { PosLiveBadge, usePosLiveStatus } from "@/components/PosLiveStatus";
+import { CashierPinPad } from "@/components/CashierPinPad";
 import {
   flushInvoiceOutbox,
   newInvoiceNumber,
-  saveInvoice,
   savePaidInvoice,
   type InvoiceDb,
   type InvoiceLine,
@@ -73,6 +75,15 @@ function CartPage() {
   const [activeTx, setActiveTx] = useState<string | null>(null);
   const [cancelling, setCancelling] = useState(false);
   const [notice, setNotice] = useState<PaymentNotice | null>(null);
+  // پرداخت نقدی فقط با رمز متصدی؛ false یعنی رمز تنظیم نشده و گزینهٔ نقدی غیرفعال است
+  const [cashEnabled, setCashEnabled] = useState<boolean | null>(null);
+  const [cashSale, setCashSale] = useState<{
+    invoiceNumber: string;
+    total: number;
+    lines: InvoiceLine[];
+  } | null>(null);
+  const [cashBusy, setCashBusy] = useState(false);
+  const [cashError, setCashError] = useState("");
   const qrHolder = useRef<HTMLDivElement | null>(null);
   const [qrValue, setQrValue] = useState("");
   // قفل هم‌زمان: لمس دوبارهٔ دکمه پیش از رندر بعدی نباید پرداخت دوم بسازد
@@ -182,6 +193,13 @@ function CartPage() {
 
   // ارسال فاکتورهای مانده در صف و بازیابی پرداختی که وسط کار قطع شده بود
   useEffect(() => {
+    void posCashStatus().then((r) => {
+      if (r.ok) setCashEnabled(r.pinConfigured);
+      if (r.ok && !r.pinConfigured) setMethod((m) => (m === "cash" ? "card" : m));
+    });
+  }, []);
+
+  useEffect(() => {
     void flushInvoiceOutbox(db());
     const pending = loadPendingPayment();
     if (!pending || recoveryStarted || getPayBackend() !== "bridge") return;
@@ -241,6 +259,18 @@ function CartPage() {
       const total = getTotal();
       const lines = toLines();
       setNotice(null);
+
+      if (method === "cash") {
+        if (cashEnabled === false) {
+          toast.error("پرداخت نقدی غیرفعال است؛ رمز متصدی در پنل مدیریت تنظیم نشده");
+          return;
+        }
+        // بلیط نقدی فقط پس از تأیید متصدی با رمز صادر می‌شود
+        setCashError("");
+        setCashSale({ invoiceNumber: invoice_number, total, lines });
+        return;
+      }
+
       setPayAmount(total);
       setPaying(true);
 
@@ -281,20 +311,50 @@ function CartPage() {
         else handleNotApproved(result);
         return;
       }
+    } finally {
+      payingRef.current = false;
+    }
+  };
 
-      const res = await saveInvoice(db(), {
-        invoiceNumber: invoice_number,
+  /** رمز متصدی را سرویس پل بررسی می‌کند؛ فقط با تأیید آن فروش نقدی ثبت و بلیط چاپ می‌شود */
+  const submitCashPin = async (pin: string) => {
+    if (!cashSale || payingRef.current) return;
+    setCashBusy(true);
+    setCashError("");
+    const auth = await posAuthorizeCash({
+      pin,
+      invoiceNumber: cashSale.invoiceNumber,
+      amountToman: cashSale.total,
+    });
+    setCashBusy(false);
+    if (!auth.ok) {
+      setCashError(auth.message);
+      if (auth.code === "NOT_CONFIGURED") {
+        setCashEnabled(false);
+        setCashSale(null);
+        setMethod("card");
+        toast.error(auth.message);
+      }
+      return;
+    }
+
+    const { invoiceNumber, total, lines } = cashSale;
+    setCashSale(null);
+    payingRef.current = true;
+    try {
+      setPayAmount(total);
+      setPaying(true);
+      setPosStatus("پرداخت نقدی تأیید شد — در حال ثبت فروش...");
+      // وجه دریافت شده؛ اگر پایگاه‌داده در دسترس نبود فاکتور در صف می‌ماند و بلیط صادر می‌شود
+      const saved = await savePaidInvoice(db(), {
+        invoiceNumber,
         total,
-        method,
+        method: "cash",
         items: lines,
       });
-      if (!res.ok) {
-        if (res.message) toast.error(res.message);
-        setPaying(false);
-        return;
-      }
-      await printTicket(invoice_number, total, "cash", lines);
-      setTimeout(() => finish(invoice_number, total, "cash"), 600);
+      if (!saved.ok) toast.warning(saved.message ?? "ثبت فاکتور با تأخیر انجام می‌شود");
+      await printTicket(invoiceNumber, total, "cash", lines);
+      finish(invoiceNumber, total, "cash");
     } finally {
       payingRef.current = false;
     }
@@ -334,7 +394,7 @@ function CartPage() {
           <p className="text-bronze-light/70 text-lg font-medium">
             {method === "card"
               ? "لطفاً کارت خود را روی دستگاه بکشید"
-              : "لطفاً مبلغ را به صندوق‌دار پرداخت کنید"}
+              : "پرداخت نقدی با تأیید متصدی ثبت شد"}
           </p>
           {method === "card" && (
             <>
@@ -466,12 +526,21 @@ function CartPage() {
             <div className="grid grid-cols-2 gap-4">
               {[
                 { key: "card" as const, icon: CreditCard, label: "کارت‌خوان", sub: "PAX Q58" },
-                { key: "cash" as const, icon: Banknote, label: "نقدی", sub: "پرداخت به صندوق" },
+                {
+                  key: "cash" as const,
+                  icon: Banknote,
+                  label: "نقدی",
+                  sub:
+                    cashEnabled === false
+                      ? "غیرفعال — رمز متصدی تنظیم نشده"
+                      : "پرداخت به متصدی با تأیید رمز",
+                },
               ].map(({ key, icon: Icon, label, sub }) => (
                 <button
                   key={key}
                   onClick={() => setMethod(key)}
-                  className={`touch-btn flex flex-col items-center gap-3 p-6 rounded-2xl border-2 transition ${
+                  disabled={key === "cash" && cashEnabled === false}
+                  className={`touch-btn flex flex-col items-center gap-3 p-6 rounded-2xl border-2 transition disabled:opacity-40 ${
                     method === key
                       ? "glass-bronze border-primary shadow-[0_10px_30px_rgba(205,127,50,0.3)]"
                       : "glass border-white/10 hover:border-primary/40"
@@ -500,6 +569,19 @@ function CartPage() {
           </div>
         )}
       </section>
+      {cashSale && (
+        <CashierPinPad
+          amountToman={cashSale.total}
+          busy={cashBusy}
+          error={cashError}
+          onSubmit={submitCashPin}
+          onCancel={() => {
+            if (cashBusy) return;
+            setCashSale(null);
+            setCashError("");
+          }}
+        />
+      )}
     </PageShell>
   );
 }

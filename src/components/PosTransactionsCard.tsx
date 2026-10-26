@@ -10,6 +10,7 @@ import { useCallback, useEffect, useState } from "react";
 import {
   AlertTriangle,
   CheckCircle2,
+  KeyRound,
   ListChecks,
   Loader2,
   RefreshCw,
@@ -17,11 +18,14 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { formatToman } from "@/lib/money";
 import {
+  posCashStatus,
   posGetProtocol,
   posMarkReviewed,
   posSaveProtocol,
+  posSetCashierPin,
   posTransactions,
   type PosProtocol,
   type PosResponseMode,
@@ -40,11 +44,13 @@ const STATUS_LABEL: Record<PosTxStatus, string> = {
   timeout: "بی‌پاسخ",
   failed: "ارسال نشد",
   uncertain: "نامطمئن",
+  cash: "نقدی (تأیید متصدی)",
 };
 
 function statusTone(t: PosTransactionRecord): string {
   if (t.needsReview && !t.reviewed) return "border-amber-400/50 text-amber-200";
-  if (t.status === "approved") return "border-emerald-400/40 text-emerald-300";
+  if (t.status === "approved" || t.status === "cash")
+    return "border-emerald-400/40 text-emerald-300";
   if (t.status === "declined" || t.status === "failed") return "border-rose-400/40 text-rose-300";
   return "border-white/20 text-bronze-light/70";
 }
@@ -282,6 +288,115 @@ export function PosTransactionsCard() {
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+/** تنظیم، تغییر یا حذف رمز متصدی برای تأیید پرداخت نقدی در کیوسک */
+export function CashierPinCard() {
+  const [configured, setConfigured] = useState<boolean | null>(null);
+  const [current, setCurrent] = useState("");
+  const [next, setNext] = useState("");
+  const [repeat, setRepeat] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  const load = useCallback(async () => {
+    const r = await posCashStatus();
+    setConfigured(r.ok ? r.pinConfigured : null);
+  }, []);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  const save = async (remove = false) => {
+    if (!remove) {
+      if (!/^[0-9]{4,8}$/.test(next)) {
+        toast.error("رمز متصدی باید ۴ تا ۸ رقم باشد");
+        return;
+      }
+      if (next !== repeat) {
+        toast.error("تکرار رمز با رمز جدید یکی نیست");
+        return;
+      }
+    } else if (!window.confirm("با حذف رمز، پرداخت نقدی در کیوسک غیرفعال می‌شود. ادامه می‌دهید؟")) {
+      return;
+    }
+    setSaving(true);
+    const r = await posSetCashierPin({ currentPin: current, newPin: remove ? "" : next });
+    setSaving(false);
+    if (r.ok) {
+      toast.success(r.message);
+      setCurrent("");
+      setNext("");
+      setRepeat("");
+      void load();
+    } else toast.error(r.message);
+  };
+
+  const field = (label: string, value: string, set: (v: string) => void) => (
+    <label className="space-y-1 text-sm text-bronze-light/70">
+      <span>{label}</span>
+      <Input
+        type="password"
+        inputMode="numeric"
+        autoComplete="off"
+        maxLength={8}
+        value={value}
+        onChange={(e) => set(e.target.value.replace(/[^0-9]/g, ""))}
+        dir="ltr"
+        className="bg-black/30 border-primary/20 rounded-xl h-11 text-left tracking-[0.4em]"
+      />
+    </label>
+  );
+
+  return (
+    <div className="glass rounded-2xl p-6 space-y-4">
+      <div className="flex items-center justify-between gap-3">
+        <p className="font-black text-bronze-light flex items-center gap-2">
+          <KeyRound className="w-5 h-5 text-primary" />
+          رمز متصدی برای پرداخت نقدی
+        </p>
+        {configured !== null && (
+          <span
+            className={`text-xs font-bold px-3 py-1 rounded-full border ${
+              configured
+                ? "border-emerald-400/40 text-emerald-300"
+                : "border-amber-400/50 text-amber-200"
+            }`}
+          >
+            {configured ? "فعال" : "تنظیم نشده — نقدی غیرفعال"}
+          </span>
+        )}
+      </div>
+
+      <p className="text-xs text-bronze-light/60 leading-6">
+        در کیوسک، بلیط نقدی فقط وقتی صادر می‌شود که متصدی پس از دریافت وجه این رمز را روی صفحه وارد
+        کند. رمز فقط به‌صورت هش روی سرویس پل همین رایانه ذخیره می‌شود و بعد از ۵ تلاش نادرست، ۵
+        دقیقه قفل می‌شود. اگر رمز فراموش شد، مقدار cashierPinHash را در pos-bridge\appsettings.json
+        خالی کنید.
+      </p>
+
+      <div className="grid gap-3 md:grid-cols-3">
+        {configured && field("رمز فعلی", current, setCurrent)}
+        {field("رمز جدید (۴ تا ۸ رقم)", next, setNext)}
+        {field("تکرار رمز جدید", repeat, setRepeat)}
+      </div>
+
+      <div className="flex flex-wrap items-center gap-3">
+        <Button onClick={() => void save()} disabled={saving || configured === null}>
+          {saving && <Loader2 className="w-4 h-4 animate-spin" />}
+          <span className="mr-2">{configured ? "تغییر رمز" : "تنظیم رمز"}</span>
+        </Button>
+        {configured && (
+          <Button variant="outline" onClick={() => void save(true)} disabled={saving}>
+            حذف رمز (غیرفعال کردن نقدی)
+          </Button>
+        )}
+        {configured === null && (
+          <span className="text-xs text-bronze-light/50">سرویس پل در دسترس نیست</span>
+        )}
+      </div>
     </div>
   );
 }

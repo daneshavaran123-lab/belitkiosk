@@ -17,7 +17,10 @@ import {
   posConnectSequence,
   posDiscover,
   posHealth,
+  posAuthorizeCash,
   posCancel,
+  posCashStatus,
+  posSetCashierPin,
   posPay,
   posPing,
   posTransactionStatus,
@@ -76,6 +79,8 @@ let lastPayHeaders: IncomingMessage["headers"] = {};
 let lastPayBody: Record<string, unknown> = {};
 const txs = new Map<string, Record<string, unknown>>();
 const held = new Map<string, ServerResponse>();
+let cashierPin = "";
+let lastCashBody: Record<string, unknown> = {};
 
 function approved(id: string, amountRial: number) {
   return {
@@ -172,6 +177,47 @@ beforeAll(async () => {
       return;
     }
 
+    if (req.url === "/cash/status") {
+      res.writeHead(200, { "content-type": "application/json" });
+      res.end(JSON.stringify({ pinConfigured: cashierPin !== "", lockedSeconds: 0 }));
+      return;
+    }
+    if (req.url === "/cash/authorize") {
+      void readBody(req).then((b) => {
+        lastCashBody = b;
+        res.writeHead(200, { "content-type": "application/json" });
+        res.end(
+          JSON.stringify(
+            cashierPin === ""
+              ? { ok: false, code: "NOT_CONFIGURED", message: "رمز متصدی تنظیم نشده است" }
+              : b.pin === cashierPin
+                ? { ok: true, authorizationId: "cash-1", message: "پرداخت نقدی تأیید شد" }
+                : {
+                    ok: false,
+                    code: "WRONG_PIN",
+                    remainingAttempts: 4,
+                    message: "رمز متصدی نادرست است (4 تلاش دیگر)",
+                  },
+          ),
+        );
+      });
+      return;
+    }
+    if (req.url === "/cash/pin") {
+      void readBody(req).then((b) => {
+        const allowed = cashierPin === "" || b.currentPin === cashierPin;
+        if (allowed) cashierPin = String(b.newPin ?? "");
+        res.writeHead(200, { "content-type": "application/json" });
+        res.end(
+          JSON.stringify(
+            allowed
+              ? { ok: true, pinConfigured: cashierPin !== "", message: "رمز متصدی ذخیره شد" }
+              : { ok: false, code: "WRONG_PIN", message: "رمز فعلی متصدی نادرست است" },
+          ),
+        );
+      });
+      return;
+    }
     if (req.url?.startsWith("/status")) {
       const id = new URL(req.url, "http://x").searchParams.get("id") ?? "";
       const tx = txs.get(id);
@@ -570,6 +616,55 @@ describe("پرداخت کارت‌خوان و ثبت فاکتور", () => {
       items,
     });
     expect(res.ok).toBe(true);
+  });
+});
+
+describe("پرداخت نقدی با رمز متصدی", () => {
+  it("تا رمز تنظیم نشده، نقدی غیرفعال است", async () => {
+    cashierPin = "";
+    expect((await posCashStatus()).pinConfigured).toBe(false);
+    const r = await posAuthorizeCash({ pin: "1234", invoiceNumber: "INV-C0", amountToman: 1000 });
+    expect(r.ok).toBe(false);
+    expect(r.code).toBe("NOT_CONFIGURED");
+  });
+
+  it("تنظیم رمز اول بار؛ تغییر بعدی رمز فعلی را لازم دارد", async () => {
+    cashierPin = "";
+    expect((await posSetCashierPin({ newPin: "4821" })).ok).toBe(true);
+    expect((await posCashStatus()).pinConfigured).toBe(true);
+    const bad = await posSetCashierPin({ currentPin: "0000", newPin: "1111" });
+    expect(bad.ok).toBe(false);
+    expect(cashierPin).toBe("4821");
+  });
+
+  it("رمز درست → تأیید؛ رمز نادرست → رد با تعداد تلاش باقی‌مانده", async () => {
+    cashierPin = "4821";
+    const wrong = await posAuthorizeCash({
+      pin: "0000",
+      invoiceNumber: "INV-C1",
+      amountToman: 50000,
+    });
+    expect(wrong.ok).toBe(false);
+    expect(wrong.code).toBe("WRONG_PIN");
+    expect(wrong.message).toContain("نادرست");
+
+    const ok = await posAuthorizeCash({ pin: "4821", invoiceNumber: "INV-C1", amountToman: 50000 });
+    expect(ok.ok).toBe(true);
+    expect(lastCashBody).toMatchObject({ invoiceNumber: "INV-C1", amountToman: 50000 });
+  });
+
+  it("رمز هرگز در حافظهٔ مرورگر ذخیره نمی‌شود", async () => {
+    cashierPin = "4821";
+    await posAuthorizeCash({ pin: "4821", invoiceNumber: "INV-C2", amountToman: 1000 });
+    for (const v of store.values()) expect(v).not.toContain("4821");
+  });
+
+  it("سرویس پل در دسترس نیست → نقدی تأیید نمی‌شود", async () => {
+    setBridgeUrl("http://127.0.0.1:1");
+    const r = await posAuthorizeCash({ pin: "4821", invoiceNumber: "INV-C3", amountToman: 1000 });
+    setBridgeUrl(`http://127.0.0.1:${port}`);
+    expect(r.ok).toBe(false);
+    expect(r.code).toBe("BRIDGE_DOWN");
   });
 });
 

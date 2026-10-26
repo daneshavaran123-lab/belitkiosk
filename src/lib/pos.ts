@@ -308,7 +308,9 @@ export type PosTxStatus =
   | "cancelled"
   | "timeout"
   | "failed"
-  | "uncertain";
+  | "uncertain"
+  /** فروش نقدی که متصدی با رمز تأیید کرده است */
+  | "cash";
 
 export interface PosResult {
   success: boolean;
@@ -1197,6 +1199,132 @@ export async function posSaveProtocol(settings: {
       return { ok: false, message: "کارت‌خوان مشغول تراکنش است؛ بعد از پایان آن ذخیره کنید" };
     if (!res.ok) return { ok: false, message: bridgeHttpError(res.status) };
     return { ok: true, message: "تنظیمات پروتکل ذخیره و اعمال شد" };
+  } catch {
+    return { ok: false, message: "سرویس کارت‌خوان در دسترس نیست" };
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/*  پرداخت نقدی با رمز متصدی                                           */
+/* ------------------------------------------------------------------ */
+
+export type CashAuthCode = "WRONG_PIN" | "LOCKED" | "NOT_CONFIGURED" | "BRIDGE_DOWN" | "ERROR";
+
+/** آیا رمز متصدی تنظیم شده است (بدون آن پرداخت نقدی در کیوسک غیرفعال است) */
+export async function posCashStatus(): Promise<{
+  ok: boolean;
+  pinConfigured: boolean;
+  lockedSeconds: number;
+}> {
+  try {
+    const res = await req("/cash/status", { method: "GET" }, 4000);
+    if (!res.ok) return { ok: false, pinConfigured: false, lockedSeconds: 0 };
+    const b = (await res.json()) as { pinConfigured?: boolean; lockedSeconds?: number };
+    return {
+      ok: true,
+      pinConfigured: b.pinConfigured === true,
+      lockedSeconds: b.lockedSeconds ?? 0,
+    };
+  } catch {
+    return { ok: false, pinConfigured: false, lockedSeconds: 0 };
+  }
+}
+
+/**
+ * تأیید پرداخت نقدی با رمز متصدی. رمز فقط به سرویس پل روی همین رایانه فرستاده می‌شود و
+ * آنجا با هش ذخیره‌شده مقایسه می‌شود؛ در مرورگر ذخیره یا لاگ نمی‌شود.
+ */
+export async function posAuthorizeCash(params: {
+  pin: string;
+  invoiceNumber: string;
+  amountToman: number;
+}): Promise<{
+  ok: boolean;
+  code?: CashAuthCode;
+  message: string;
+  authorizationId?: string;
+  remainingAttempts?: number;
+  retryAfterSeconds?: number;
+}> {
+  let res: Response;
+  try {
+    res = await req(
+      "/cash/authorize",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          pin: params.pin,
+          invoiceNumber: params.invoiceNumber,
+          amountToman: Math.round(params.amountToman),
+        }),
+      },
+      10_000,
+    );
+  } catch {
+    return {
+      ok: false,
+      code: "BRIDGE_DOWN",
+      message: "سرویس کارت‌خوان در دسترس نیست؛ تأیید پرداخت نقدی ممکن نیست",
+    };
+  }
+  const b = (await res.json().catch(() => ({}))) as {
+    ok?: boolean;
+    code?: CashAuthCode;
+    message?: string;
+    authorizationId?: string;
+    remainingAttempts?: number;
+    retryAfterSeconds?: number;
+  };
+  if (!res.ok) {
+    return {
+      ok: false,
+      code: "ERROR",
+      message:
+        res.status === 401 || res.status === 403
+          ? bridgeHttpError(res.status)
+          : (b.message ?? bridgeHttpError(res.status)),
+    };
+  }
+  if (b.ok === true) posLog("cash:authorized", { invoice: params.invoiceNumber });
+  else posLogError("cash:rejected", { invoice: params.invoiceNumber, code: b.code });
+  return {
+    ok: b.ok === true,
+    code: b.code,
+    message: b.message ?? (b.ok ? "پرداخت نقدی تأیید شد" : "رمز متصدی پذیرفته نشد"),
+    authorizationId: b.authorizationId,
+    remainingAttempts: b.remainingAttempts,
+    retryAfterSeconds: b.retryAfterSeconds,
+  };
+}
+
+/** تنظیم، تغییر یا حذف (newPin خالی) رمز متصدی؛ اگر رمز قبلی وجود دارد، currentPin لازم است */
+export async function posSetCashierPin(params: {
+  currentPin?: string;
+  newPin: string;
+}): Promise<{ ok: boolean; message: string; pinConfigured?: boolean }> {
+  try {
+    const res = await req(
+      "/cash/pin",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ currentPin: params.currentPin ?? "", newPin: params.newPin }),
+      },
+      10_000,
+    );
+    const b = (await res.json().catch(() => ({}))) as {
+      ok?: boolean;
+      message?: string;
+      pinConfigured?: boolean;
+    };
+    if (res.status === 401 || res.status === 403)
+      return { ok: false, message: bridgeHttpError(res.status) };
+    return {
+      ok: b.ok === true,
+      message: b.message ?? (res.ok ? "ذخیره شد" : bridgeHttpError(res.status)),
+      pinConfigured: b.pinConfigured,
+    };
   } catch {
     return { ok: false, message: "سرویس کارت‌خوان در دسترس نیست" };
   }
