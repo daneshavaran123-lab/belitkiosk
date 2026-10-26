@@ -93,9 +93,12 @@ export function setAgentWsUrl(url: string) {
   localStorage.setItem(LS_WS, url.trim().replace(/\/$/, ""));
 }
 
-/** روش پرداخت کارت‌خوان: سرویس PosAgent یا پل pos-bridge */
+/**
+ * روش پرداخت کارت‌خوان: پل pos-bridge (پیش‌فرض؛ پروتکل PC-POS مستقیم با دستگاه) یا سرویس PosAgent.
+ * انتخابی که قبلاً در پنل ذخیره شده باشد حفظ می‌شود.
+ */
 export function getPayBackend(): PayBackend {
-  return readLs(LS_BACKEND, "agent") === "bridge" ? "bridge" : "agent";
+  return readLs(LS_BACKEND, "bridge") === "agent" ? "agent" : "bridge";
 }
 
 export function setPayBackend(backend: PayBackend) {
@@ -140,6 +143,8 @@ export function mapAgentResult(r: AgentPaymentResult): PosResult {
   if (r.Success || r.Status === "Success") {
     return {
       success: true,
+      final: true,
+      transactionId: r.TransactionId,
       responseCode: "00",
       message: "تراکنش موفق",
       refNumber: r.Rrn ?? "",
@@ -154,6 +159,8 @@ export function mapAgentResult(r: AgentPaymentResult): PosResult {
         : r.ErrorMessage || "تراکنش ناموفق بود";
   return {
     success: false,
+    final: true,
+    transactionId: r.TransactionId,
     responseCode: r.ErrorCode ?? "",
     message,
     refNumber: r.Rrn ?? "",
@@ -197,10 +204,14 @@ export async function agentCancel(transactionId: string): Promise<void> {
 }
 
 /** گوش‌دادن به نتیجهٔ لحظه‌ای از WebSocket + پشتیبانِ polling روی /status */
+/** بعد از لغو، حداکثر این مدت منتظر تأیید لغو (یا پرداخت هم‌زمان) از Agent می‌مانیم */
+const CANCEL_GRACE_MS = 20_000;
+
 function waitForResult(
   transactionId: string,
   overallTimeoutMs: number,
   onStatus?: (status: AgentPaymentStatus) => void,
+  signal?: AbortSignal,
 ): Promise<AgentPaymentResult> {
   return new Promise((resolve, reject) => {
     let settled = false;
@@ -211,7 +222,11 @@ function waitForResult(
       settled = true;
       clearTimeout(timer);
       clearInterval(poller);
-      try { ws?.close(); } catch { /* ignore */ }
+      try {
+        ws?.close();
+      } catch {
+        /* ignore */
+      }
       resolve(r);
     };
     const fail = (message: string) => {
@@ -219,11 +234,22 @@ function waitForResult(
       settled = true;
       clearTimeout(timer);
       clearInterval(poller);
-      try { ws?.close(); } catch { /* ignore */ }
+      try {
+        ws?.close();
+      } catch {
+        /* ignore */
+      }
       reject(new Error(message));
     };
 
-    const timer = setTimeout(() => fail("پاسخی از سرویس پرداخت دریافت نشد"), overallTimeoutMs);
+    let timer = setTimeout(() => fail("پاسخی از سرویس پرداخت دریافت نشد"), overallTimeoutMs);
+    signal?.addEventListener("abort", () => {
+      clearTimeout(timer);
+      timer = setTimeout(
+        () => fail("لغو ثبت شد ولی سرویس پرداخت نتیجه را تأیید نکرد"),
+        CANCEL_GRACE_MS,
+      );
+    });
 
     const handleResult = (r: AgentPaymentResult) => {
       if (r.TransactionId !== transactionId) return;
@@ -241,7 +267,9 @@ function waitForResult(
         try {
           const data = JSON.parse(String(event.data)) as AgentPaymentResult;
           if (data && typeof data.TransactionId === "string") handleResult(data);
-        } catch { /* پیام نامعتبر نادیده گرفته می‌شود */ }
+        } catch {
+          /* پیام نامعتبر نادیده گرفته می‌شود */
+        }
       };
       ws.onerror = () => posLogError("agent:ws-error", transactionId);
     } catch (e) {
@@ -251,11 +279,17 @@ function waitForResult(
     // Polling پشتیبان هر ۵ ثانیه
     const poller = setInterval(async () => {
       try {
-        const res = await agentFetch(`/status/${encodeURIComponent(transactionId)}`, { method: "GET" }, 4000);
+        const res = await agentFetch(
+          `/status/${encodeURIComponent(transactionId)}`,
+          { method: "GET" },
+          4000,
+        );
         if (!res.ok) return;
         const body = (await res.json()) as ApiResult<AgentPaymentResult>;
         if (body.TotalRes && body.Data) handleResult(body.Data);
-      } catch { /* تلاش بعدی */ }
+      } catch {
+        /* تلاش بعدی */
+      }
     }, 5000);
   });
 }
@@ -306,7 +340,9 @@ export async function agentPay(
       };
     }
 
-    const startBody = (await startRes.json().catch(() => null)) as ApiResult<StartPaymentResponse> | null;
+    const startBody = (await startRes
+      .json()
+      .catch(() => null)) as ApiResult<StartPaymentResponse> | null;
     if (!startRes.ok || !startBody || !startBody.TotalRes) {
       const msg = startBody?.Message || `خطا در شروع پرداخت (${startRes.status})`;
       posLogError("agent:pay-start-rejected", { transactionId, msg });
@@ -318,19 +354,21 @@ export async function agentPay(
       transactionId,
       (timeoutSeconds + 10) * 1000,
       opts.onStatus,
+      opts.signal,
     );
 
-    if (cancelledByUser) return { success: false, message: "عملیات پرداخت لغو شد" };
+    // حتی اگر مشتری لغو زده باشد، نتیجهٔ واقعی دستگاه ملاک است: اگر همان لحظه کارت کشیده
+    // و پرداخت تأیید شده، فروش باید ثبت شود نه اینکه پولش گم شود
     const mapped = mapAgentResult(result);
+    if (cancelledByUser && mapped.success) posLog("agent:approved-after-cancel", { transactionId });
     if (mapped.success) posLog("agent:pay-approved", { transactionId, rrn: mapped.refNumber });
     else posLogError("agent:pay-declined", { transactionId, status: result.Status });
     return mapped;
   } catch (e) {
-    const msg = cancelledByUser
-      ? "عملیات پرداخت لغو شد"
-      : (e as Error).message || "خطای غیرمنتظره در پرداخت";
-    posLogError("agent:pay-failed", { transactionId, msg });
-    return { success: false, message: msg };
+    const msg = (e as Error).message || "خطای غیرمنتظره در پرداخت";
+    posLogError("agent:pay-failed", { transactionId, msg, cancelledByUser });
+    // نتیجه‌ای از Agent نرسید؛ ممکن است وجه کسر شده باشد
+    return { success: false, final: true, uncertain: true, transactionId, message: msg };
   } finally {
     opts.signal?.removeEventListener("abort", onAbort);
   }

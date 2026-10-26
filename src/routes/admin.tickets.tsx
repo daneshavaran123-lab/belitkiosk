@@ -46,10 +46,7 @@ function AdminTicketsPage() {
 
   const load = async () => {
     setLoading(true);
-    const { data, error } = await supabase
-      .from("ticket_types")
-      .select("*")
-      .order("id");
+    const { data, error } = await supabase.from("ticket_types").select("*").order("id");
     if (error) toast.error(error.message);
     setRows((data as Ticket[]) ?? []);
     setLoading(false);
@@ -73,10 +70,7 @@ function AdminTicketsPage() {
 
   const save = async () => {
     if (editing) {
-      const { error } = await supabase
-        .from("ticket_types")
-        .update(form)
-        .eq("id", editing.id);
+      const { error } = await supabase.from("ticket_types").update(form).eq("id", editing.id);
       if (error) return toast.error(error.message);
       toast.success("ذخیره شد");
     } else {
@@ -225,9 +219,7 @@ function AdminTicketsPage() {
                   <Input
                     type="number"
                     value={form.base_price}
-                    onChange={(e) =>
-                      setForm({ ...form, base_price: Number(e.target.value) })
-                    }
+                    onChange={(e) => setForm({ ...form, base_price: Number(e.target.value) })}
                     className="bg-black/40 border-primary/30 text-white"
                   />
                 </div>
@@ -236,9 +228,7 @@ function AdminTicketsPage() {
                   <Input
                     type="number"
                     value={form.group_min_count}
-                    onChange={(e) =>
-                      setForm({ ...form, group_min_count: Number(e.target.value) })
-                    }
+                    onChange={(e) => setForm({ ...form, group_min_count: Number(e.target.value) })}
                     className="bg-black/40 border-primary/30 text-white"
                   />
                 </div>

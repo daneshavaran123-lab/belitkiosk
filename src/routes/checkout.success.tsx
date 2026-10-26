@@ -60,7 +60,6 @@ function SuccessPage() {
     }
   };
 
-
   return (
     <PageShell title="پرداخت موفق" showCart={false}>
       <Toaster position="top-center" richColors />
@@ -73,8 +72,7 @@ function SuccessPage() {
           <div
             className="w-24 h-24 rounded-full mx-auto flex items-center justify-center"
             style={{
-              background:
-                "radial-gradient(circle at 30% 30%, #86efac, #22c55e 55%, #14532d)",
+              background: "radial-gradient(circle at 30% 30%, #86efac, #22c55e 55%, #14532d)",
               boxShadow: "0 15px 40px rgba(34,197,94,0.35)",
             }}
           >
@@ -82,9 +80,7 @@ function SuccessPage() {
           </div>
 
           <div>
-            <h2 className="text-3xl font-black text-bronze-gradient">
-              پرداخت با موفقیت ثبت شد
-            </h2>
+            <h2 className="text-3xl font-black text-bronze-gradient">پرداخت با موفقیت ثبت شد</h2>
             <p className="mt-2 text-bronze-light/70 font-medium">
               روش پرداخت: {method === "card" ? "کارت‌خوان" : "نقدی"}
             </p>

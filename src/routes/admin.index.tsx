@@ -21,9 +21,7 @@ function AdminDashboard() {
 
   useEffect(() => {
     const load = async () => {
-      const { data } = await supabase
-        .from("invoices")
-        .select("total, created_at");
+      const { data } = await supabase.from("invoices").select("total, created_at");
       const rows = data ?? [];
       const today = new Date();
       today.setHours(0, 0, 0, 0);
@@ -43,7 +41,12 @@ function AdminDashboard() {
     { label: "کل فاکتورها", value: fmt(stats.invoices), icon: Receipt, tint: "#60a5fa" },
     { label: "درآمد کل", value: fmt(stats.revenue) + " تومان", icon: DollarSign, tint: "#34d399" },
     { label: "فروش امروز", value: fmt(stats.today), icon: TicketIcon, tint: "#f59e0b" },
-    { label: "درآمد امروز", value: fmt(stats.todayRev) + " تومان", icon: TrendingUp, tint: "#c084fc" },
+    {
+      label: "درآمد امروز",
+      value: fmt(stats.todayRev) + " تومان",
+      icon: TrendingUp,
+      tint: "#c084fc",
+    },
   ];
 
   return (
@@ -118,12 +121,16 @@ function ChangePasswordCard() {
         </div>
         <div>
           <h3 className="text-lg font-black text-bronze-gradient">تغییر رمز عبور</h3>
-          <p className="text-xs text-bronze-light/60">پس از اولین ورود، رمز پیش‌فرض را حتماً عوض کنید.</p>
+          <p className="text-xs text-bronze-light/60">
+            پس از اولین ورود، رمز پیش‌فرض را حتماً عوض کنید.
+          </p>
         </div>
       </div>
       <form onSubmit={onSubmit} className="space-y-4">
         <div className="space-y-2">
-          <Label htmlFor="np" className="text-bronze-light">رمز جدید</Label>
+          <Label htmlFor="np" className="text-bronze-light">
+            رمز جدید
+          </Label>
           <Input
             id="np"
             type="password"
@@ -136,7 +143,9 @@ function ChangePasswordCard() {
           />
         </div>
         <div className="space-y-2">
-          <Label htmlFor="np2" className="text-bronze-light">تکرار رمز جدید</Label>
+          <Label htmlFor="np2" className="text-bronze-light">
+            تکرار رمز جدید
+          </Label>
           <Input
             id="np2"
             type="password"

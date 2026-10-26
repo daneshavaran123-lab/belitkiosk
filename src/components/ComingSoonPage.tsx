@@ -28,9 +28,7 @@ export function ComingSoonPage({ title, icon: Icon, description, accent }: Props
             <Icon className="w-14 h-14 text-[#03080f]" strokeWidth={2.2} />
           </div>
           <h2 className="text-4xl font-black text-bronze-gradient">{title}</h2>
-          <p className="text-bronze-light/70 text-lg font-medium leading-relaxed">
-            {description}
-          </p>
+          <p className="text-bronze-light/70 text-lg font-medium leading-relaxed">{description}</p>
           <div className="inline-flex items-center gap-2 px-5 py-2 rounded-full glass border border-primary/30 text-bronze-light font-bold text-sm">
             <span className="w-2 h-2 rounded-full bg-primary animate-pulse" />
             به‌زودی راه‌اندازی می‌شود

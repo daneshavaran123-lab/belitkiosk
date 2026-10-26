@@ -1,0 +1,87 @@
+name: Windows app
+
+# نسخهٔ ویندوزی کامل (برنامهٔ دسکتاپ + سرویس کارت‌خوان + نصب‌کننده) را روی ویندوز می‌سازد.
+# خروجی در بخش Artifacts همین اجرا قابل دانلود است. برای Release: تگ v* را push کنید یا
+# workflow را دستی (Run workflow) با release_tag مثل v1.0.0 اجرا کنید.
+on:
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: "Release tag to create, e.g. v1.0.0 (empty = build only)"
+        required: false
+        default: ""
+  push:
+    branches: [main, "claude/**"]
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: windows-app-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  package:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Install dependencies
+        shell: bash
+        run: |
+          bun install --frozen-lockfile || {
+            echo "Lockfile registry unreachable; installing from registry.npmjs.org"
+            rm -f bun.lock
+            BUN_CONFIG_REGISTRY=https://registry.npmjs.org bun install
+          }
+
+      - name: Card-reader bridge tests
+        run: dotnet test pos-bridge/tests/PosBridge.Tests
+
+      - name: Release version
+        id: rel
+        shell: bash
+        env:
+          INPUT_TAG: ${{ inputs.release_tag }}
+        run: |
+          tag=""
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then tag="$GITHUB_REF_NAME"; fi
+          if [[ -n "$INPUT_TAG" ]]; then tag="$INPUT_TAG"; fi
+          if [[ -n "$tag" ]]; then
+            [[ "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "Invalid release tag: $tag"; exit 1; }
+            echo "APP_VERSION=${tag#v}" >> "$GITHUB_ENV"
+          fi
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+
+      - name: Build Windows package
+        run: node scripts/build-windows-app.mjs
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: MuseumKiosk-Windows
+          path: release/MuseumKiosk-Windows
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Publish release
+        if: steps.rel.outputs.tag != ''
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.rel.outputs.tag }}
+          target_commitish: ${{ github.sha }}
+          name: کیوسک موزه — نسخهٔ ویندوزی ${{ steps.rel.outputs.tag }}
+          body_path: installers/RELEASE-NOTES.md
+          files: release/MuseumKiosk-Windows.zip

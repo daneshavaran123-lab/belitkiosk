@@ -8,31 +8,53 @@
 
 نکته: دیتابیس (بلیط‌ها، فاکتورها، ورود مدیر) همچنان آنلاین است و کارت‌خوان کاملاً محلی کار می‌کند. بدون اینترنت برنامه بالا می‌آید ولی داده‌های سرور بارگذاری نمی‌شود.
 
+## دریافت نسخهٔ آماده
+
+هر بار که کد در GitHub به‌روز می‌شود، workflow «Windows app» روی ویندوز اجرا می‌شود و بستهٔ کامل را
+می‌سازد: در GitHub → **Actions → Windows app** → آخرین اجرا → بخش **Artifacts** →
+`MuseumKiosk-Windows`. اگر یک تگ مثل `v1.0.0` push شود، همان بسته به‌صورت
+`MuseumKiosk-Windows.zip` به صفحهٔ **Releases** هم پیوست می‌شود.
+
 ## ساخت خروجی (روی سیستم توسعه‌دهنده)
 
+پیش‌نیاز: Node.js 22.12+، Bun یا npm، و .NET SDK 8 (برای سرویس کارت‌خوان).
+
 ```bash
-npm install
-npm install --save-dev electron @electron/packager   # فقط بار اول
+bun install            # یا npm install
 npm run desktop:package
 ```
 
-خروجی: `electron-release/MuseumKiosk-win32-x64/` به‌همراه `install-windows.bat` و `uninstall-windows.bat`.
+Electron و ابزار بسته‌بندی خودکار دانلود می‌شوند (نسخهٔ Electron: `44.7.0`، با متغیر
+`ELECTRON_VERSION` قابل تغییر). روی ویندوز، لینوکس و مک کار می‌کند.
 
-برای تست سریع بدون بسته‌بندی:
+خروجی `release/MuseumKiosk-Windows/` (و `release/MuseumKiosk-Windows.zip`):
 
-```bash
-npm run build
-npm run desktop:start
-```
+| مسیر | محتوا |
+| --- | --- |
+| `MuseumKiosk-win32-x64/` | برنامهٔ دسکتاپ با سرور داخلی |
+| `pos-bridge/` | سرویس کارت‌خوان (`PosBridge.exe`، `run.bat`، ابزار تست و فایروال) |
+| `install-windows.bat` / `uninstall-windows.bat` | نصب و حذف |
+| `README.md` | همین راهنما |
 
 ## نصب روی کیوسک
 
-1. کل پوشهٔ `electron-release` را روی کیوسک کپی کنید.
+1. پوشهٔ `MuseumKiosk-Windows` را (از zip بیرون آورده) روی کیوسک کپی کنید.
 2. روی `install-windows.bat` راست‌کلیک → **Run as administrator**.
-3. برنامه در `%LOCALAPPDATA%\MuseumKiosk` نصب می‌شود، میان‌بر دسکتاپ و منوی استارت ساخته می‌شود و اجرای خودکار در Startup فعال می‌گردد.
-4. اگر پوشهٔ `pos-bridge` هم کنار آن باشد، سرویس کارت‌خوان هم به Startup اضافه می‌شود.
+3. نصب‌کننده:
+   - برنامه را در `%LOCALAPPDATA%\MuseumKiosk` نصب و میان‌بر دسکتاپ، منوی استارت و Startup می‌سازد؛
+   - سرویس کارت‌خوان را در `%LOCALAPPDATA%\MuseumKiosk\pos-bridge` نصب، به Startup اضافه و اجرا می‌کند؛
+   - قاعدهٔ فایروال پورت 17000 را فقط برای IP کارت‌خوان می‌سازد (فقط با Run as administrator).
+4. تنظیم یک‌باره: در `%LOCALAPPDATA%\MuseumKiosk\pos-bridge\bin\Release\net48\appsettings.json`
+   یک `accessToken` تصادفی بگذارید (و اگر IP کارت‌خوان فرق دارد `deviceIp` را عوض کنید)، سرویس را با
+   ری‌استارت ویندوز یا اجرای دوبارهٔ `run.bat` بالا بیاورید، سپس در برنامه → پنل مدیریت → «تنظیمات
+   کارت‌خوان» همان توکن را وارد کنید و «رمز متصدی برای پرداخت نقدی» را بگذارید.
+5. یک خرید آزمایشی: `pos-bridge\tools\Test-PcPos.ps1 -Amount 10000` (پیش از آن سرویس را ببندید؛ خرید واقعی است).
 
-حذف: اجرای `uninstall-windows.bat`.
+**به‌روزرسانی:** نسخهٔ جدید را کپی و دوباره `install-windows.bat` را اجرا کنید. تنظیمات کارت‌خوان
+(توکن، رمز متصدی، IP) و دفتر تراکنش‌ها دست نمی‌خورند.
+
+**حذف:** `uninstall-windows.bat`؛ پیش از حذف، از دفتر تراکنش‌های کارت‌خوان روی دسکتاپ نسخهٔ پشتیبان
+(`MuseumKiosk-transactions-backup.jsonl`) گرفته می‌شود.
 
 ## کلیدهای میان‌بر
 
@@ -60,8 +82,9 @@ Settings → System → Display:
 
 | مشکل | راه‌حل |
 | --- | --- |
-| پنجرهٔ سفید یا خطای «فایل‌های اجرایی پیدا نشد» | قبل از بسته‌بندی `npm run build` اجرا نشده؛ دوباره `npm run desktop:package` بزنید |
+| پنجرهٔ سفید یا خطای «فایل‌های اجرایی پیدا نشد» | بسته ناقص کپی شده؛ پوشهٔ کامل را دوباره کپی و نصب کنید، یا `npm run desktop:package` را دوباره بزنید |
 | برنامه اجرا نمی‌شود و پیام سرور می‌دهد | پورت داخلی اشغال است؛ سیستم را ریستارت کنید یا نسخهٔ دیگری از برنامه در حال اجراست (Task Manager → MuseumKiosk.exe) |
-| کارت‌خوان وصل نمی‌شود | `pos-bridge` اجرا نشده یا کیوسک و دستگاه در یک شبکه نیستند — صفحهٔ `/admin/pos` را باز کنید و «تشخیص سریع» را ببینید |
+| کارت‌خوان وصل نمی‌شود | `pos-bridge` اجرا نشده یا کیوسک و دستگاه در یک شبکه نیستند — صفحهٔ `/admin/pos` را باز کنید و «تشخیص سریع» را ببینید؛ راهنمای کامل در `pos-bridge\README.md` |
+| دستگاه رسید چاپ کرد ولی کیوسک پاسخی نگرفت | فایروال: `pos-bridge\tools\allow-firewall.bat` را با Run as administrator اجرا کنید |
 | در استارتاپ اجرا نمی‌شود | میان‌بر `museum-kiosk.lnk` را در `shell:startup` بررسی کنید |
 | صفحه کوچک/بزرگ دیده می‌شود | مقیاس ویندوز را روی ۱۰۰٪ بگذارید و برنامه را دوباره اجرا کنید |

@@ -7,10 +7,7 @@ import { toast } from "sonner";
 
 export const Route = createFileRoute("/admin/surveys")({
   head: () => ({
-    meta: [
-      { title: "نظرسنجی‌ها — پنل مدیریت" },
-      { name: "robots", content: "noindex" },
-    ],
+    meta: [{ title: "نظرسنجی‌ها — پنل مدیریت" }, { name: "robots", content: "noindex" }],
   }),
   component: AdminSurveys,
 });
@@ -76,7 +73,9 @@ function AdminSurveys() {
     <div className="space-y-6">
       <div>
         <h2 className="text-2xl font-black text-bronze-gradient mb-1">نظرسنجی‌های بازدیدکنندگان</h2>
-        <p className="text-bronze-light/60 text-sm">مجموع {rows.length.toLocaleString("fa-IR")} پاسخ</p>
+        <p className="text-bronze-light/60 text-sm">
+          مجموع {rows.length.toLocaleString("fa-IR")} پاسخ
+        </p>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -105,9 +104,7 @@ function AdminSurveys() {
             <div key={r.id} className="glass-bronze rounded-2xl p-4">
               <div className="flex items-start justify-between gap-3 mb-3">
                 <div>
-                  <p className="font-bold text-bronze-light">
-                    {r.visitor_name || "ناشناس"}
-                  </p>
+                  <p className="font-bold text-bronze-light">{r.visitor_name || "ناشناس"}</p>
                   <p className="text-xs text-bronze-light/50">
                     {new Date(r.created_at).toLocaleString("fa-IR")}
                   </p>

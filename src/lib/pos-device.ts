@@ -70,7 +70,11 @@ export function networkInterfaceLabel(iface: PosNetworkInterface): string {
 /** آیا سریال پاسخ دستگاه با سریال ثبت‌شده یکی است؟ (فاصله و صفرِ ابتدا نادیده) */
 export function serialMatches(reported: string | undefined, expected: string): boolean {
   if (!reported) return true; // دستگاه سریال برنگرداند — تطبیق را رد نمی‌کنیم
-  const norm = (v: string) => v.replace(/[^0-9a-zA-Z]/g, "").replace(/^0+/, "").toUpperCase();
+  const norm = (v: string) =>
+    v
+      .replace(/[^0-9a-zA-Z]/g, "")
+      .replace(/^0+/, "")
+      .toUpperCase();
   return norm(reported) === norm(expected);
 }
 

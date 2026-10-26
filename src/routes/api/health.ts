@@ -8,7 +8,8 @@ export const Route = createFileRoute("/api/health")({
     handlers: {
       GET: async () =>
         Response.json(await buildHealthPayload(), { headers: { "cache-control": "no-store" } }),
-      HEAD: async () => new Response(null, { status: 200, headers: { "cache-control": "no-store" } }),
+      HEAD: async () =>
+        new Response(null, { status: 200, headers: { "cache-control": "no-store" } }),
     },
   },
 });

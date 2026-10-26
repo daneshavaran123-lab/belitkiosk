@@ -71,6 +71,11 @@ import {
 } from "@/lib/pos";
 import { PosLiveBadge, type PosLiveState } from "@/components/PosLiveStatus";
 import {
+  CashierPinCard,
+  PosProtocolCard,
+  PosTransactionsCard,
+} from "@/components/PosTransactionsCard";
+import {
   agentHealth,
   getAgentHttpUrl,
   getAgentWsUrl,
@@ -191,8 +196,16 @@ function AdminPosGuarded() {
             className="text-center"
           />
           {error && <p className="text-sm font-bold text-rose-400">{error}</p>}
-          <Button type="submit" disabled={checking || !password} className="w-full rounded-xl font-black h-12">
-            {checking ? <Loader2 className="w-5 h-5 animate-spin ml-2" /> : <ShieldCheck className="w-5 h-5 ml-2" />}
+          <Button
+            type="submit"
+            disabled={checking || !password}
+            className="w-full rounded-xl font-black h-12"
+          >
+            {checking ? (
+              <Loader2 className="w-5 h-5 animate-spin ml-2" />
+            ) : (
+              <ShieldCheck className="w-5 h-5 ml-2" />
+            )}
             باز کردن صفحه
           </Button>
         </form>
@@ -200,11 +213,15 @@ function AdminPosGuarded() {
     );
   }
 
-  return <AdminPos onLock={() => {
-    logAudit("lock");
-    sessionStorage.removeItem(UNLOCK_KEY);
-    setUnlocked(false);
-  }} />;
+  return (
+    <AdminPos
+      onLock={() => {
+        logAudit("lock");
+        sessionStorage.removeItem(UNLOCK_KEY);
+        setUnlocked(false);
+      }}
+    />
+  );
 }
 
 const INITIAL: PosSettings = {
@@ -446,7 +463,11 @@ function AdminPos({ onLock }: { onLock: () => void }) {
     const p = await posPing({ ip: form.deviceIp, port: form.devicePort });
     setManualCheck(p);
     setVerifying(false);
-    localLog(p.ok ? "info" : "error", "verify", `${form.deviceIp}:${form.devicePort} — ${p.message}`);
+    localLog(
+      p.ok ? "info" : "error",
+      "verify",
+      `${form.deviceIp}:${form.devicePort} — ${p.message}`,
+    );
     audits(p.stage === "handshake" ? "handshake" : "ping", {
       code: p.code ?? (p.ok ? "OK" : "UNKNOWN"),
       detail: `${form.deviceIp}:${form.devicePort} — ${p.message}`,
@@ -608,11 +629,7 @@ function AdminPos({ onLock }: { onLock: () => void }) {
     if (identityAttempt >= MAX_IDENTITY_ATTEMPTS) {
       if (identityAttempt === MAX_IDENTITY_ATTEMPTS) {
         setIdentityAttempt((a) => a + 1);
-        localLog(
-          "error",
-          "identity",
-          "بازیابی خودکار متوقف شد — نیازمند بررسی دستی دستگاه است",
-        );
+        localLog("error", "identity", "بازیابی خودکار متوقف شد — نیازمند بررسی دستی دستگاه است");
         audits("identity:giveup", {
           code: identityMismatchCodes(identity).join("، "),
           source: sourceLabel("device"),
@@ -639,8 +656,6 @@ function AdminPos({ onLock }: { onLock: () => void }) {
     audits,
   ]);
 
-
-
   const copyLogs = async () => {
     const text = logs.map((l) => `${l.time} [${l.level}] ${l.event} — ${l.message}`).join("\n");
     await navigator.clipboard.writeText(text);
@@ -658,10 +673,9 @@ function AdminPos({ onLock }: { onLock: () => void }) {
   const downloadReport = () => {
     const report = buildSupportReport(logs);
     const stamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
-    const blob = new Blob(
-      [reportText() + "\n\n--- JSON ---\n" + JSON.stringify(report, null, 2)],
-      { type: "text/plain;charset=utf-8" },
-    );
+    const blob = new Blob([reportText() + "\n\n--- JSON ---\n" + JSON.stringify(report, null, 2)], {
+      type: "text/plain;charset=utf-8",
+    });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
@@ -683,13 +697,13 @@ function AdminPos({ onLock }: { onLock: () => void }) {
   const diag = posErrorInfo(lastCode);
   const diagSteps = posSourceSteps(diag.source);
 
-  const filteredAudit = [...audit]
-    .reverse()
-    .filter((e) => {
-      const q = auditFilter.trim();
-      if (!q) return true;
-      return `${auditLabel(e.kind)} ${e.user} ${e.code ?? ""} ${e.detail ?? ""} ${e.atFa}`.includes(q);
-    });
+  const filteredAudit = [...audit].reverse().filter((e) => {
+    const q = auditFilter.trim();
+    if (!q) return true;
+    return `${auditLabel(e.kind)} ${e.user} ${e.code ?? ""} ${e.detail ?? ""} ${e.atFa}`.includes(
+      q,
+    );
+  });
 
   // شناسنامه که سالم شد، شمارندهٔ بازیابی صفر می‌شود
   useEffect(() => {
@@ -1019,10 +1033,7 @@ function AdminPos({ onLock }: { onLock: () => void }) {
               { k: "میانگین RTT", v: quality.avgRttMs != null ? `${quality.avgRttMs}ms` : "—" },
               {
                 k: "کمینه/بیشینه",
-                v:
-                  quality.minRttMs != null
-                    ? `${quality.minRttMs}/${quality.maxRttMs}ms`
-                    : "—",
+                v: quality.minRttMs != null ? `${quality.minRttMs}/${quality.maxRttMs}ms` : "—",
               },
               { k: "نوسان (jitter)", v: quality.jitterMs != null ? `${quality.jitterMs}ms` : "—" },
               { k: "بسته‌های بی‌پاسخ", v: `${quality.lossPercent}٪` },
@@ -1363,9 +1374,8 @@ function AdminPos({ onLock }: { onLock: () => void }) {
         </p>
         <p className="text-xs text-bronze-light/60 leading-6">
           اگر در فایل <span dir="ltr">pos-bridge\appsettings.json</span> مقدار
-          <span dir="ltr"> accessToken </span>تنظیم شده باشد، مسیرهای تنظیمات و لاگ فقط با همین
-          توکن پاسخ می‌دهند. توکن فقط روی همین مرورگر ذخیره می‌شود و داخل گزارش پشتیبانی نوشته
-          نمی‌شود.
+          <span dir="ltr"> accessToken </span>تنظیم شده باشد، مسیرهای تنظیمات و لاگ فقط با همین توکن
+          پاسخ می‌دهند. توکن فقط روی همین مرورگر ذخیره می‌شود و داخل گزارش پشتیبانی نوشته نمی‌شود.
         </p>
         <div className="flex gap-2">
           <Input
@@ -1382,7 +1392,11 @@ function AdminPos({ onLock }: { onLock: () => void }) {
             onClick={() => {
               setPosAccessToken(token);
               toast.success(token.trim() ? "توکن ذخیره شد" : "توکن حذف شد");
-              localLog("info", "token", token.trim() ? "توکن دسترسی به‌روزرسانی شد" : "توکن حذف شد");
+              localLog(
+                "info",
+                "token",
+                token.trim() ? "توکن دسترسی به‌روزرسانی شد" : "توکن حذف شد",
+              );
               audits("token:change", { detail: token.trim() ? "توکن تغییر کرد" : "توکن حذف شد" });
             }}
           >
@@ -1399,7 +1413,11 @@ function AdminPos({ onLock }: { onLock: () => void }) {
             <Button className="rounded-xl font-black h-9" onClick={downloadReport}>
               <Download className="w-4 h-4 ml-2" /> دانلود گزارش
             </Button>
-            <Button variant="secondary" className="rounded-xl font-black h-9" onClick={() => void copyReport()}>
+            <Button
+              variant="secondary"
+              className="rounded-xl font-black h-9"
+              onClick={() => void copyReport()}
+            >
               <Copy className="w-4 h-4 ml-2" /> کپی گزارش
             </Button>
             <Button
@@ -1412,9 +1430,9 @@ function AdminPos({ onLock }: { onLock: () => void }) {
           </div>
         </div>
         <p className="text-xs text-bronze-light/60">
-          شامل آخرین {pings.length} تلاش ping/handshake، رویدادهای سرویس پل، تنظیمات دستگاه و
-          مشخصات کیوسک (ویندوز، پردازنده، رزولوشن ۱۰۸۰×۱۹۲۰ و لمسی). رمز دستگاه و توکن داخل گزارش
-          نوشته نمی‌شود.
+          شامل آخرین {pings.length} تلاش ping/handshake، رویدادهای سرویس پل، تنظیمات دستگاه و مشخصات
+          کیوسک (ویندوز، پردازنده، رزولوشن ۱۰۸۰×۱۹۲۰ و لمسی). رمز دستگاه و توکن داخل گزارش نوشته
+          نمی‌شود.
         </p>
         <div className="rounded-xl bg-black/25 p-3 space-y-1 text-xs font-mono max-h-40 overflow-y-auto">
           {pings.length === 0 ? (
@@ -1429,8 +1447,8 @@ function AdminPos({ onLock }: { onLock: () => void }) {
                 <span dir="ltr" className="text-primary/80">
                   {p.code ?? "-"}
                 </span>{" "}
-                <span dir="ltr">{p.target}</span>{" "}
-                {p.latencyMs != null && `${p.latencyMs}ms`} — {p.message}
+                <span dir="ltr">{p.target}</span> {p.latencyMs != null && `${p.latencyMs}ms`} —{" "}
+                {p.message}
               </p>
             ))
           )}
@@ -1447,7 +1465,11 @@ function AdminPos({ onLock }: { onLock: () => void }) {
             </span>
           </p>
           <div className="flex gap-2">
-            <Button variant="secondary" className="rounded-xl font-black h-9" onClick={downloadAudit}>
+            <Button
+              variant="secondary"
+              className="rounded-xl font-black h-9"
+              onClick={downloadAudit}
+            >
               <Download className="w-4 h-4 ml-2" /> خروجی CSV
             </Button>
             <Button
@@ -1566,6 +1588,12 @@ function AdminPos({ onLock }: { onLock: () => void }) {
         </div>
       </div>
 
+      <PosTransactionsCard />
+
+      <CashierPinCard />
+
+      <PosProtocolCard />
+
       <AgentCard />
 
       <PrinterCard />
@@ -1574,16 +1602,15 @@ function AdminPos({ onLock }: { onLock: () => void }) {
         <p className="font-black text-bronze-light">راهنمای سریع</p>
         <p>
           سرویس ویندوزی «pos-bridge» را روی همین کیوسک اجرا کنید؛ فقط روی
-          <span dir="ltr"> 127.0.0.1:9099 </span>گوش می‌دهد و درخواست پرداخت را روی شبکه به کارت‌خوان
-          می‌فرستد.
+          <span dir="ltr"> 127.0.0.1:9099 </span>گوش می‌دهد و درخواست پرداخت را روی شبکه به
+          کارت‌خوان می‌فرستد.
         </p>
         <p>
-چون کابل شبکه به پورت LAN دستگاه وصل است، رابط «کابل شبکه» را انتخاب و «جست‌وجوی
-          خودکار در شبکه» را بزنید؛ سیستم با تطبیق سریال {DEVICE_PROFILE.serialNumber} خودِ کارت‌خوان
-          موزه را پیدا می‌کند. اگر کابل را جدا کردید، رابط «وای‌فای» را انتخاب کنید تا آدرس{" "}
+          چون کابل شبکه به پورت LAN دستگاه وصل است، رابط «کابل شبکه» را انتخاب و «جست‌وجوی خودکار در
+          شبکه» را بزنید؛ سیستم با تطبیق سریال {DEVICE_PROFILE.serialNumber} خودِ کارت‌خوان موزه را
+          پیدا می‌کند. اگر کابل را جدا کردید، رابط «وای‌فای» را انتخاب کنید تا آدرس{" "}
           {DEFAULT_WIFI_IP} برگردد. IP دستگاه را می‌توانید از منوی «اطلاعات سیستم» روی خود کارت‌خوان
-          هم بخوانید. کیوسک و کارت‌خوان باید روی یک شبکه
-          باشند.
+          هم بخوانید. کیوسک و کارت‌خوان باید روی یک شبکه باشند.
         </p>
       </div>
     </div>
@@ -1603,8 +1630,10 @@ function AgentCard() {
     const res = await agentHealth();
     setChecking(false);
     setHealth(res);
-    if (!res.ok) {
-      toast.warning("سرویس پرداخت در دسترس نیست — مطمئن شوید PosAgent اجراست (net start PosAgentService)");
+    if (!res.ok && getPayBackend() === "agent") {
+      toast.warning(
+        "سرویس پرداخت در دسترس نیست — مطمئن شوید PosAgent اجراست (net start PosAgentService)",
+      );
     }
   }, []);
 
@@ -1615,7 +1644,11 @@ function AgentCard() {
   const pick = (b: PayBackend) => {
     setBackend(b);
     setPayBackend(b);
-    toast.success(b === "agent" ? "پرداخت از طریق PosAgent انجام می‌شود" : "پرداخت از طریق pos-bridge انجام می‌شود");
+    toast.success(
+      b === "agent"
+        ? "پرداخت از طریق PosAgent انجام می‌شود"
+        : "پرداخت از طریق pos-bridge انجام می‌شود",
+    );
   };
 
   const saveUrls = () => {
@@ -1630,10 +1663,10 @@ function AgentCard() {
       <div className="flex items-center justify-between">
         <p className="font-black text-bronze-light flex items-center gap-2">
           <Zap className="w-5 h-5 text-primary" />
-          سرویس پرداخت PosAgent
+          روش پرداخت کارت‌خوان
         </p>
         <div className="flex items-center gap-2">
-          {health && (
+          {health && backend === "agent" && (
             <span
               className={`text-xs font-bold px-3 py-1 rounded-full border ${
                 health.ok
@@ -1645,19 +1678,29 @@ function AgentCard() {
             </span>
           )}
           <Button variant="outline" size="sm" onClick={() => void check()} disabled={checking}>
-            {checking ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+            {checking ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <RefreshCw className="w-4 h-4" />
+            )}
             <span className="mr-2">بررسی دوباره</span>
           </Button>
         </div>
       </div>
 
       <div className="grid gap-3 md:grid-cols-2">
-        {(
-          [
-            { key: "agent" as const, title: "PosAgent (پیشنهادی)", sub: "سرویس ویندوزی Agent — HTTP 18765 / WebSocket 18766" },
-            { key: "bridge" as const, title: "پل pos-bridge", sub: "ارتباط مستقیم با DLL — پورت 9099" },
-          ]
-        ).map((o) => (
+        {[
+          {
+            key: "bridge" as const,
+            title: "پل pos-bridge (پیشنهادی)",
+            sub: "پروتکل PC-POS مستقیم با دستگاه — پورت 9099، با دفتر تراکنش و بازیابی",
+          },
+          {
+            key: "agent" as const,
+            title: "PosAgent",
+            sub: "سرویس ویندوزی Agent — HTTP 18765 / WebSocket 18766",
+          },
+        ].map((o) => (
           <button
             key={o.key}
             onClick={() => pick(o.key)}
@@ -1668,7 +1711,9 @@ function AgentCard() {
             }`}
           >
             <p className="font-black text-bronze-light">{o.title}</p>
-            <p className="text-xs text-bronze-light/60 mt-1" dir="rtl">{o.sub}</p>
+            <p className="text-xs text-bronze-light/60 mt-1" dir="rtl">
+              {o.sub}
+            </p>
           </button>
         ))}
       </div>
@@ -1770,7 +1815,11 @@ function PrinterCard() {
           پرینتر حرارتی بلیط (۸۰ میلی‌متری)
         </p>
         <Button variant="outline" size="sm" onClick={() => void load()} disabled={loading}>
-          {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+          {loading ? (
+            <Loader2 className="w-4 h-4 animate-spin" />
+          ) : (
+            <RefreshCw className="w-4 h-4" />
+          )}
           <span className="mr-2">بازخوانی فهرست</span>
         </Button>
       </div>

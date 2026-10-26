@@ -1,23 +1,38 @@
 @echo off
-REM حذف کامل نسخهٔ ویندوزی کیوسک موزه
+REM حذف کامل نسخهٔ ویندوزی کیوسک موزه و سرویس کارت‌خوان
 setlocal
 chcp 65001 >nul
 title حذف کیوسک موزه
 
 set "DEST=%LOCALAPPDATA%\MuseumKiosk"
+set "BRIDGE_DATA=%DEST%\pos-bridge\bin\Release\net48\data"
 set "DESKTOP=%USERPROFILE%\Desktop"
 set "STARTMENU=%APPDATA%\Microsoft\Windows\Start Menu\Programs"
 set "STARTUP=%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup"
 
-echo بستن برنامه...
+echo بستن برنامه و سرویس کارت‌خوان...
 taskkill /IM MuseumKiosk.exe /F >nul 2>&1
+powershell -NoProfile -Command ^
+  "Get-CimInstance Win32_Process | Where-Object { $_.Name -eq 'cmd.exe' -and $_.CommandLine -like '*pos-bridge*run.bat*' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }" >nul 2>&1
+taskkill /IM PosBridge.exe /F >nul 2>&1
 timeout /t 2 >nul
+
+REM دفتر تراکنش‌های کارت‌خوان سابقهٔ مالی است؛ پیش از حذف روی دسکتاپ پشتیبان گرفته می‌شود
+if exist "%BRIDGE_DATA%\transactions.jsonl" (
+  copy /y "%BRIDGE_DATA%\transactions.jsonl" "%DESKTOP%\MuseumKiosk-transactions-backup.jsonl" >nul
+  echo نسخهٔ پشتیبان دفتر تراکنش‌ها روی دسکتاپ ذخیره شد.
+)
 
 echo حذف میان‌برها...
 del /f /q "%DESKTOP%\موزه کشتی.lnk" >nul 2>&1
 del /f /q "%STARTMENU%\موزه کشتی.lnk" >nul 2>&1
 del /f /q "%STARTUP%\museum-kiosk.lnk" >nul 2>&1
 del /f /q "%STARTUP%\pos-bridge.lnk" >nul 2>&1
+
+net session >nul 2>&1
+if not errorlevel 1 (
+  powershell -NoProfile -Command "Get-NetFirewallRule -DisplayName 'PosBridge PC-POS callback' -ErrorAction SilentlyContinue | Remove-NetFirewallRule" >nul 2>&1
+)
 
 echo حذف فایل‌های برنامه...
 if exist "%DEST%" rmdir /s /q "%DEST%"
