@@ -1,0 +1,188 @@
+@import "tailwindcss" source(none);
+@source "../src";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 8px);
+  --radius-3xl: calc(var(--radius) + 12px);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-bronze: var(--bronze);
+  --color-bronze-light: var(--bronze-light);
+  --color-bronze-dark: var(--bronze-dark);
+  --color-museum-navy: var(--museum-navy);
+  --font-sans: "Vazirmatn", ui-sans-serif, system-ui, sans-serif;
+}
+
+:root {
+  --radius: 1rem;
+  --background: oklch(0.16 0.03 250);
+  --foreground: oklch(0.92 0.05 75);
+  --card: oklch(0.22 0.035 250);
+  --card-foreground: oklch(0.92 0.05 75);
+  --popover: oklch(0.22 0.035 250);
+  --popover-foreground: oklch(0.92 0.05 75);
+  --primary: oklch(0.72 0.14 65);
+  --primary-foreground: oklch(0.16 0.03 250);
+  --secondary: oklch(0.28 0.04 250);
+  --secondary-foreground: oklch(0.92 0.05 75);
+  --muted: oklch(0.24 0.03 250);
+  --muted-foreground: oklch(0.7 0.04 75);
+  --accent: oklch(0.72 0.14 65);
+  --accent-foreground: oklch(0.16 0.03 250);
+  --destructive: oklch(0.6 0.22 25);
+  --destructive-foreground: oklch(0.98 0.01 0);
+  --border: oklch(0.72 0.14 65 / 0.2);
+  --input: oklch(0.72 0.14 65 / 0.2);
+  --ring: oklch(0.72 0.14 65);
+  --bronze: #cd7f32;
+  --bronze-light: #d4956a;
+  --bronze-dark: #8b5a2b;
+  --museum-navy: #03080f;
+}
+
+@layer base {
+  * {
+    border-color: var(--color-border);
+  }
+  html {
+    font-family: "Vazirmatn", ui-sans-serif, system-ui, sans-serif;
+    height: 100%;
+    /* Kiosk: never let the document itself scroll — pages own their scroll area. */
+    overflow: hidden;
+  }
+  body {
+    background-color: var(--museum-navy);
+    color: var(--color-foreground);
+    background-image:
+      radial-gradient(circle at 20% 10%, rgba(205, 127, 50, 0.08), transparent 45%),
+      radial-gradient(circle at 80% 90%, rgba(44, 95, 124, 0.1), transparent 50%);
+    height: 100%;
+    overflow: hidden;
+    overscroll-behavior: none;
+  }
+  body > * {
+    height: 100%;
+  }
+}
+
+
+@utility museum-bg {
+  background-color: var(--museum-navy);
+  background-image:
+    radial-gradient(circle at 20% 10%, rgba(205, 127, 50, 0.08), transparent 45%),
+    radial-gradient(circle at 80% 90%, rgba(44, 95, 124, 0.1), transparent 50%);
+}
+
+@utility glass {
+  background: rgba(255, 255, 255, 0.04);
+  backdrop-filter: blur(14px);
+}
+
+@utility glass-bronze {
+  background: linear-gradient(135deg, rgba(205, 127, 50, 0.12), rgba(44, 95, 124, 0.1));
+  backdrop-filter: blur(18px);
+  border: 1px solid rgba(205, 127, 50, 0.25);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+}
+
+@utility touch-btn {
+  touch-action: manipulation;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+@utility text-bronze-gradient {
+  color: transparent;
+  background-clip: text;
+  -webkit-background-clip: text;
+  background-image: linear-gradient(to left, #d4956a, #cd7f32);
+}
+
+@keyframes fade-in-up {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes scale-in {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
+}
+.animate-fade-in-up { animation: fade-in-up 0.5s ease-out both; }
+.animate-scale-in { animation: scale-in 0.3s ease-out both; }
+
+/* ============================================================
+   KIOSK LAYOUT (target device: 1080x1920 portrait, no page scroll)
+   `kiosk-root`  → full-height flex column, never scrolls
+   `kiosk-body`  → the only scrollable region (usually stays unscrolled)
+   ============================================================ */
+@utility kiosk-root {
+  height: 100dvh;
+  max-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  position: relative;
+}
+
+@utility kiosk-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+.kiosk-body::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+}
+
+/* Fluid scaling so the whole UI fits a tall portrait kiosk screen without scrolling.
+   Kiosk target: 1080x1920 physical pixels, Windows scale 100%, Chrome --force-device-scale-factor=1 */
+@media (orientation: portrait) and (min-height: 1400px) {
+  html {
+    font-size: 20px;
+  }
+}
+/* Exact kiosk panel: 1080 wide x 1920 tall at 100% scale */
+@media (orientation: portrait) and (min-width: 1000px) and (min-height: 1800px) {
+  html {
+    font-size: 26px;
+  }
+}
+/* Portrait but narrower than the kiosk (tablets) — keep type readable, not huge */
+@media (orientation: portrait) and (max-width: 999px) and (min-height: 1800px) {
+  html {
+    font-size: 22px;
+  }
+}
+
+/* Short landscape screens (laptops / 1366x768) — shrink so content still fits */
+@media (orientation: landscape) and (max-height: 820px) {
+  html {
+    font-size: 14px;
+  }
+}

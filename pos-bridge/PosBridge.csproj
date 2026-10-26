@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <!-- کتابخانه‌های کارت‌خوان فقط روی ویندوز و روی .NET Framework کار می‌کنند -->
+    <TargetFramework>net48</TargetFramework>
+    <AssemblyName>PosBridge</AssemblyName>
+    <RootNamespace>PosBridge</RootNamespace>
+    <LangVersion>latest</LangVersion>
+    <PlatformTarget>x86</PlatformTarget>
+    <UseWindowsForms>false</UseWindowsForms>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- کتابخانهٔ رسمی PC-POS (در lib\PosInterface.dll موجود است) -->
+    <Reference Include="PosInterface">
+      <HintPath>lib\PosInterface.dll</HintPath>
+      <Private>true</Private>
+    </Reference>
+    <!-- کتابخانهٔ قدیمی پارسیان؛ در صورت وجود کنار پروژه استفاده می‌شود -->
+    <Reference Include="pec.pcpos" Condition="Exists('lib\pec.pcpos.dll')">
+      <HintPath>lib\pec.pcpos.dll</HintPath>
+      <Private>true</Private>
+    </Reference>
+    <Reference Include="System.Drawing" />
+    <Reference Include="System.Web.Extensions" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="appsettings.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,14 @@
+node_modules
+.output
+.nitro
+.vite
+dist
+.git
+.env
+.env.*
+pos-bridge/bin
+pos-bridge/obj
+tsconfig.tsbuildinfo
+electron
+electron-release
+installers

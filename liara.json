@@ -1,0 +1,16 @@
+{
+  "platform": "node",
+  "port": 3000,
+  "node": {
+    "version": "22",
+    "timezone": "Asia/Tehran"
+  },
+  "disks": [],
+  "healthCheck": {
+    "command": "curl --fail http://127.0.0.1:$PORT/api/health || exit 1",
+    "interval": 30,
+    "timeout": 10,
+    "retries": 3,
+    "startPeriod": 30
+  }
+}
