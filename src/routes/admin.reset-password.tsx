@@ -11,10 +11,7 @@ import { KeyRound } from "lucide-react";
 
 export const Route = createFileRoute("/admin/reset-password")({
   head: () => ({
-    meta: [
-      { title: "بازیابی رمز — پنل مدیریت" },
-      { name: "robots", content: "noindex" },
-    ],
+    meta: [{ title: "بازیابی رمز — پنل مدیریت" }, { name: "robots", content: "noindex" }],
   }),
   component: ResetPasswordPage,
 });
@@ -62,11 +59,16 @@ function ResetPasswordPage() {
     <PageShell title="بازیابی رمز" showCart={false}>
       <Toaster position="top-center" richColors />
       <section className="max-w-md mx-auto px-6 py-10">
-        <form onSubmit={onSubmit} className="glass-bronze rounded-3xl p-8 space-y-5 animate-fade-in-up">
+        <form
+          onSubmit={onSubmit}
+          className="glass-bronze rounded-3xl p-8 space-y-5 animate-fade-in-up"
+        >
           <div className="text-center mb-2">
             <div
               className="w-20 h-20 rounded-full mx-auto flex items-center justify-center"
-              style={{ background: "radial-gradient(circle at 30% 30%, #f5c98a, #cd7f32 55%, #8b5a2b)" }}
+              style={{
+                background: "radial-gradient(circle at 30% 30%, #f5c98a, #cd7f32 55%, #8b5a2b)",
+              }}
             >
               <KeyRound className="w-10 h-10 text-[#03080f]" strokeWidth={2.2} />
             </div>
@@ -77,7 +79,9 @@ function ResetPasswordPage() {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="pwd" className="text-bronze-light">رمز جدید</Label>
+            <Label htmlFor="pwd" className="text-bronze-light">
+              رمز جدید
+            </Label>
             <Input
               id="pwd"
               type="password"
@@ -91,7 +95,9 @@ function ResetPasswordPage() {
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="pwd2" className="text-bronze-light">تکرار رمز جدید</Label>
+            <Label htmlFor="pwd2" className="text-bronze-light">
+              تکرار رمز جدید
+            </Label>
             <Input
               id="pwd2"
               type="password"

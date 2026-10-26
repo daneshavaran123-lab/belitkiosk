@@ -19,10 +19,7 @@ import {
 
 export const Route = createFileRoute("/admin/login")({
   head: () => ({
-    meta: [
-      { title: "ورود ادمین — موزه کشتی" },
-      { name: "robots", content: "noindex" },
-    ],
+    meta: [{ title: "ورود ادمین — موزه کشتی" }, { name: "robots", content: "noindex" }],
   }),
   component: AdminLoginPage,
 });
@@ -87,16 +84,14 @@ function AdminLoginPage() {
             >
               <LogIn className="w-10 h-10 text-[#03080f]" strokeWidth={2.2} />
             </div>
-            <h2 className="mt-4 text-2xl font-black text-bronze-gradient">
-              پنل مدیریت
-            </h2>
-            <p className="text-bronze-light/70 text-sm mt-1 font-medium">
-              ورود ویژه مدیران موزه
-            </p>
+            <h2 className="mt-4 text-2xl font-black text-bronze-gradient">پنل مدیریت</h2>
+            <p className="text-bronze-light/70 text-sm mt-1 font-medium">ورود ویژه مدیران موزه</p>
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="email" className="text-bronze-light">ایمیل</Label>
+            <Label htmlFor="email" className="text-bronze-light">
+              ایمیل
+            </Label>
             <Input
               id="email"
               type="email"
@@ -109,7 +104,9 @@ function AdminLoginPage() {
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="password" className="text-bronze-light">رمز عبور</Label>
+            <Label htmlFor="password" className="text-bronze-light">
+              رمز عبور
+            </Label>
             <Input
               id="password"
               type="password"
@@ -153,7 +150,9 @@ function AdminLoginPage() {
           </DialogHeader>
           <form onSubmit={sendReset} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="reset-email" className="text-bronze-light">ایمیل</Label>
+              <Label htmlFor="reset-email" className="text-bronze-light">
+                ایمیل
+              </Label>
               <Input
                 id="reset-email"
                 type="email"

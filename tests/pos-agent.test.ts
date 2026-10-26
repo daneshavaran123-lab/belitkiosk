@@ -1,9 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  agentStatusLabel,
-  mapAgentResult,
-  type AgentPaymentResult,
-} from "@/lib/pos-agent";
+import { agentStatusLabel, mapAgentResult, type AgentPaymentResult } from "@/lib/pos-agent";
 
 const base: AgentPaymentResult = {
   TransactionId: "t-1",

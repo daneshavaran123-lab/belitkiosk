@@ -212,8 +212,7 @@ export function classifyPing(input: {
   if (m.includes("no route") || fa.includes("زیرشبکه")) return "NET_WRONG_SUBNET";
   if (m.includes("refused") || fa.includes("باز نشد")) return "NET_REFUSED";
   if (m.includes("timed out") || m.includes("timeout") || fa.includes("زمان")) return "NET_TIMEOUT";
-  if (m.includes("unreachable") || fa.includes("پیدا نشد"))
-    return "NET_UNREACHABLE";
+  if (m.includes("unreachable") || fa.includes("پیدا نشد")) return "NET_UNREACHABLE";
   if (fa.includes("مشغول") || m.includes("busy")) return "DEV_BUSY";
   if (input.stage === "handshake" || fa.includes("handshake")) return "DEV_HANDSHAKE_FAILED";
   if (input.stage === "network") return "NET_UNREACHABLE";

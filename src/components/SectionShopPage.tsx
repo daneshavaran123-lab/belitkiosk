@@ -51,7 +51,6 @@ async function fetchSectionProducts(section: string): Promise<Product[]> {
   return (data as Product[]) ?? [];
 }
 
-
 export function SectionShopPage({
   section,
   title,
@@ -75,7 +74,6 @@ export function SectionShopPage({
     retry: 2,
     staleTime: 60_000,
   });
-
 
   const getQty = (id: number) => qty[id] ?? 1;
   const setQ = (id: number, n: number) =>
@@ -105,9 +103,7 @@ export function SectionShopPage({
         ) : error ? (
           <div className="glass-bronze rounded-3xl p-10 text-center space-y-5 max-w-2xl mx-auto animate-fade-in-up">
             <TriangleAlert className="w-16 h-16 mx-auto text-amber-400" />
-            <h2 className="text-2xl font-black text-bronze-gradient">
-              دریافت محصولات ناموفق بود
-            </h2>
+            <h2 className="text-2xl font-black text-bronze-gradient">دریافت محصولات ناموفق بود</h2>
             <p className="text-bronze-light/70 text-sm" dir="ltr">
               {(error as Error).message}
             </p>

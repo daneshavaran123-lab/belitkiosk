@@ -1,15 +1,28 @@
-import { createFileRoute, Outlet, Link, useNavigate, useRouterState, redirect } from "@tanstack/react-router";
+import {
+  createFileRoute,
+  Outlet,
+  Link,
+  useNavigate,
+  useRouterState,
+  redirect,
+} from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { LayoutDashboard, Ticket, Receipt, LogOut, Home, Package, MessageSquare, CreditCard } from "lucide-react";
+import {
+  LayoutDashboard,
+  Ticket,
+  Receipt,
+  LogOut,
+  Home,
+  Package,
+  MessageSquare,
+  CreditCard,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 export const Route = createFileRoute("/admin")({
   head: () => ({
-    meta: [
-      { title: "پنل مدیریت — موزه کشتی" },
-      { name: "robots", content: "noindex" },
-    ],
+    meta: [{ title: "پنل مدیریت — موزه کشتی" }, { name: "robots", content: "noindex" }],
   }),
   component: AdminLayout,
 });
@@ -57,7 +70,12 @@ function AdminLayout() {
     };
   }, [navigate]);
 
-  if (pathname === "/admin/login") return <div className="h-full overflow-y-auto"><Outlet /></div>;
+  if (pathname === "/admin/login")
+    return (
+      <div className="h-full overflow-y-auto">
+        <Outlet />
+      </div>
+    );
 
   if (state === "loading") {
     return (
@@ -82,7 +100,10 @@ function AdminLayout() {
           >
             خروج
           </Button>
-          <Link to="/" className="inline-flex items-center gap-2 h-10 px-4 rounded-xl glass-bronze text-bronze-light">
+          <Link
+            to="/"
+            className="inline-flex items-center gap-2 h-10 px-4 rounded-xl glass-bronze text-bronze-light"
+          >
             <Home className="w-4 h-4" /> صفحه اصلی
           </Link>
         </div>
@@ -106,7 +127,9 @@ function AdminLayout() {
             <h1 className="text-lg font-black text-bronze-gradient">پنل مدیریت موزه</h1>
           </div>
           <div className="flex items-center gap-3">
-            <span className="hidden sm:block text-sm text-bronze-light/70" dir="ltr">{email}</span>
+            <span className="hidden sm:block text-sm text-bronze-light/70" dir="ltr">
+              {email}
+            </span>
             <Link
               to="/"
               className="touch-btn h-10 px-3 rounded-xl glass border border-primary/20 text-bronze-light flex items-center gap-1 text-sm"
@@ -137,9 +160,7 @@ function AdminLayout() {
                   <Link
                     to={n.to}
                     className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold whitespace-nowrap transition ${
-                      active
-                        ? "text-[#03080f]"
-                        : "text-bronze-light hover:bg-white/5"
+                      active ? "text-[#03080f]" : "text-bronze-light hover:bg-white/5"
                     }`}
                     style={
                       active

@@ -58,9 +58,7 @@ export function summarizeNetworkQuality(records: PosPingRecord[]): PosNetworkQua
   }
 
   const avgRttMs = avg(rtts);
-  const lastRttMs = records.length
-    ? records[records.length - 1].latencyMs
-    : undefined;
+  const lastRttMs = records.length ? records[records.length - 1].latencyMs : undefined;
 
   // منشأ غالب خطا
   let dominantSource: PosErrorSource | undefined;
