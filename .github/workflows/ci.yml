@@ -22,3 +22,15 @@ jobs:
         run: bun run test:run
       - name: Build
         run: bun run build
+
+  pos-bridge:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+      - name: Build card-reader bridge (net48)
+        run: dotnet build pos-bridge/PosBridge.csproj -c Release
+      - name: Tests (PC-POS protocol, journal, LAN client)
+        run: dotnet test pos-bridge/tests/PosBridge.Tests
