@@ -73,7 +73,13 @@ vi.stubGlobal("navigator", {
  * busy: سرویس پل مشغول تراکنش دیگری است
  */
 type Mode =
-  "approve" | "decline" | "hang" | "error" | "approve-on-cancel" | "approve-lost" | "busy";
+  | "approve"
+  | "decline"
+  | "hang"
+  | "error"
+  | "approve-on-cancel"
+  | "approve-lost"
+  | "busy";
 let mode: Mode = "approve";
 let lastPayHeaders: IncomingMessage["headers"] = {};
 let lastPayBody: Record<string, unknown> = {};
