@@ -25,7 +25,6 @@ import {
 
 export type { PosNetworkInterface } from "./pos-device";
 
-
 const LS_URL = "pos.bridgeUrl";
 const LS_TERMINAL = "pos.terminalId";
 const LS_MERCHANT = "pos.merchantId";
@@ -43,12 +42,13 @@ const LS_PINGS = "pos.pingHistory";
 export const DEFAULT_BRIDGE_URL = "http://127.0.0.1:9099";
 export const DEFAULT_TERMINAL_ID = "5634056";
 export const DEFAULT_MERCHANT_ID = "6618774";
-export const DEFAULT_DEVICE_PORT = "8888";
+/** پورت PC-POS روی دستگاه (همان پورتی که کتابخانهٔ رسمی PosInterface استفاده می‌کند) */
+export const DEFAULT_DEVICE_PORT = "17000";
 export const DEFAULT_SERIAL_NUMBER = DEVICE_PROFILE.serialNumber;
 /** آدرس دستگاه روی وای‌فای موزه — از «اطلاعات سیستم» خود دستگاه */
 export const DEFAULT_WIFI_IP = DEVICE_PROFILE.wifiIp;
-/** در حالت کابل، IP از قبل معلوم نیست و با جست‌وجوی خودکار پیدا می‌شود */
-export const DEFAULT_LAN_IP = "";
+/** آدرس دستگاه روی کابل شبکهٔ موزه (قابل تغییر از پنل یا جست‌وجوی خودکار) */
+export const DEFAULT_LAN_IP = "192.168.16.160";
 export const DEFAULT_DEVICE_IP = DEFAULT_WIFI_IP;
 /** رابط پیش‌فرض: کابل شبکه (طبق سیم‌کشی فعلی دستگاه) */
 export const DEFAULT_NETWORK_INTERFACE: PosNetworkInterface = "lan";
@@ -68,12 +68,10 @@ export const DEVICE_FACTS = {
 
 export type PosConnectionMode = "lan" | "com";
 
-
 function read(key: string, fallback: string): string {
   if (typeof window === "undefined") return fallback;
   return localStorage.getItem(key)?.trim() || fallback;
 }
-
 
 export function getBridgeUrl(): string {
   return read(LS_URL, DEFAULT_BRIDGE_URL);
@@ -299,6 +297,19 @@ export async function savePosSettings(s: PosSettings): Promise<{ ok: boolean; me
   }
 }
 
+/** وضعیت‌های تراکنش در دفتر سرویس پل (توضیح کامل در pos-bridge/TransactionJournal.cs) */
+export type PosTxStatus =
+  | "pending"
+  | "sending"
+  | "sent"
+  | "approved"
+  | "approved_late"
+  | "declined"
+  | "cancelled"
+  | "timeout"
+  | "failed"
+  | "uncertain";
+
 export interface PosResult {
   success: boolean;
   responseCode?: string;
@@ -306,6 +317,15 @@ export interface PosResult {
   refNumber?: string;
   maskedPan?: string;
   terminalId?: string;
+  stan?: string;
+  /** شناسهٔ یکتای تراکنش که کیوسک ساخته است */
+  transactionId?: string;
+  status?: PosTxStatus;
+  /** نتیجهٔ نهایی است (دیگر تغییر نمی‌کند) */
+  final?: boolean;
+  /** ممکن است وجه کسر شده باشد ولی تأیید قطعی نداریم — باید با رسید دستگاه بررسی شود */
+  uncertain?: boolean;
+  needsReview?: boolean;
 }
 
 export interface PosDeviceStatus {
@@ -320,6 +340,14 @@ export interface PosDeviceStatus {
   merchantId?: string;
   libraryLoaded?: boolean;
   simulate?: boolean;
+  protocol?: string;
+  responseMode?: string;
+  callbackPort?: number;
+  callbackListening?: boolean;
+  callbackError?: string | null;
+  busy?: boolean;
+  needsReview?: number;
+  tokenRequired?: boolean;
 }
 
 /** لاگ یکپارچهٔ رویدادهای کارت‌خوان در کنسول مرورگر */
@@ -345,6 +373,18 @@ async function req(path: string, init: RequestInit, timeoutMs: number): Promise<
   }
 }
 
+/** پیام فارسی برای پاسخ‌های خطای سرویس پل */
+export function bridgeHttpError(status: number): string {
+  if (status === 401)
+    return "توکن دسترسی سرویس کارت‌خوان درست نیست (۴۰۱) — آن را در تنظیمات کارت‌خوان وارد کنید";
+  if (status === 403) {
+    const origin =
+      typeof window !== "undefined" && window.location ? window.location.origin : "این صفحه";
+    return `سرویس کارت‌خوان آدرس ${origin} را مجاز نمی‌داند — آن را به allowedOrigins در appsettings.json اضافه کنید`;
+  }
+  return `خطای سرویس کارت‌خوان (${status})`;
+}
+
 /** بررسی در دسترس بودن سرویس پل و خودِ دستگاه کارت‌خوان */
 export async function posHealth(
   timeoutMs = 5000,
@@ -353,7 +393,11 @@ export async function posHealth(
     const res = await req("/health", { method: "GET" }, timeoutMs);
     if (!res.ok) {
       posLogError("health:bad-status", res.status);
-      return { ok: false, message: `پاسخ نامعتبر از سرویس پل (${res.status})` };
+      return {
+        ok: false,
+        message:
+          res.status === 403 ? bridgeHttpError(403) : `پاسخ نامعتبر از سرویس پل (${res.status})`,
+      };
     }
     const body = (await res.json()) as {
       status?: string;
@@ -534,8 +578,7 @@ export async function posPing(
     const mismatch = body.ok && !serialMatches(body.reportedSerial, expectedSerial);
     const code = mismatch
       ? "DEV_SERIAL_MISMATCH"
-      : (body.code ??
-        classifyPing({ ok: body.ok, stage: body.stage, message: body.message }));
+      : (body.code ?? classifyPing({ ok: body.ok, stage: body.stage, message: body.message }));
     const result: PosPingResult = {
       latencyMs: Date.now() - started,
       ...body,
@@ -655,7 +698,12 @@ export async function posConnectSequence(
   if (!health.device && !health.ok && health.message.includes("در دسترس نیست")) {
     set("bridge", { state: "fail", detail: health.message });
     failRest("bridge");
-    saveConnectionState({ status: "error", lastError: health.message, lastStepKey: "bridge", lastErrorCode: "BRIDGE_DOWN" });
+    saveConnectionState({
+      status: "error",
+      lastError: health.message,
+      lastStepKey: "bridge",
+      lastErrorCode: "BRIDGE_DOWN",
+    });
     return false;
   }
   set("bridge", { state: "ok", detail: "سرویس پاسخ داد", latencyMs: Date.now() - t0 });
@@ -666,7 +714,12 @@ export async function posConnectSequence(
   if (!saved.ok) {
     set("config", { state: "fail", detail: saved.message });
     failRest("config");
-    saveConnectionState({ status: "error", lastError: saved.message, lastStepKey: "config", lastErrorCode: "CFG_INVALID" });
+    saveConnectionState({
+      status: "error",
+      lastError: saved.message,
+      lastStepKey: "config",
+      lastErrorCode: "CFG_INVALID",
+    });
     return false;
   }
   set("config", { state: "ok", detail: saved.message });
@@ -677,7 +730,12 @@ export async function posConnectSequence(
   if (!ping.ok) {
     set("network", { state: "fail", detail: ping.message, latencyMs: ping.latencyMs });
     failRest("network");
-    saveConnectionState({ status: "disconnected", lastError: ping.message, lastStepKey: "network", lastErrorCode: ping.code ?? "NET_UNREACHABLE" });
+    saveConnectionState({
+      status: "disconnected",
+      lastError: ping.message,
+      lastStepKey: "network",
+      lastErrorCode: ping.code ?? "NET_UNREACHABLE",
+    });
     return false;
   }
   set("network", {
@@ -794,64 +852,353 @@ export async function clearPosLogs(): Promise<void> {
   }
 }
 
+/** شناسهٔ یکتای تراکنش؛ با همین شناسه می‌توان نتیجه را بعداً از سرویس پل پرسید */
+export function newTransactionId(): string {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function")
+    return crypto.randomUUID();
+  const b = new Uint8Array(16);
+  crypto.getRandomValues(b);
+  b[6] = (b[6] & 0x0f) | 0x40;
+  b[8] = (b[8] & 0x3f) | 0x80;
+  const h = Array.from(b, (x) => x.toString(16).padStart(2, "0")).join("");
+  return `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20)}`;
+}
+
+/** تبدیل پاسخ سرویس پل به خروجی استاندارد برنامه */
+export function normalizePosResult(
+  body: Record<string, unknown>,
+  transactionId: string,
+): PosResult {
+  const str = (k: string) => (typeof body[k] === "string" ? (body[k] as string) : undefined);
+  const bool = (k: string) => (typeof body[k] === "boolean" ? (body[k] as boolean) : undefined);
+  const status = str("status") as PosTxStatus | undefined;
+  const success = body.success === true;
+  return {
+    success,
+    status,
+    transactionId: str("transactionId") ?? transactionId,
+    responseCode: str("responseCode"),
+    message: str("message"),
+    refNumber: str("refNumber"),
+    maskedPan: str("maskedPan"),
+    terminalId: str("terminalId"),
+    stan: str("stan"),
+    // پاسخ قدیمی سرویس پل وضعیت نداشت؛ آن را نهایی فرض می‌کنیم
+    final: bool("final") ?? (status ? !["pending", "sending", "sent"].includes(status) : true),
+    uncertain: bool("uncertain") ?? false,
+    needsReview: bool("needsReview") ?? false,
+  };
+}
+
+/** پرسیدن وضعیت یک تراکنش؛ null یعنی سرویس پل چنین تراکنشی ندارد */
+export async function posTransactionStatus(
+  transactionId: string,
+  timeoutMs = 4000,
+): Promise<PosResult | null> {
+  const res = await req(
+    `/status?id=${encodeURIComponent(transactionId)}`,
+    { method: "GET" },
+    timeoutMs,
+  );
+  if (res.status === 404) return null;
+  if (!res.ok) throw new Error(bridgeHttpError(res.status));
+  return normalizePosResult((await res.json()) as Record<string, unknown>, transactionId);
+}
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 /**
- * شروع تراکنش. مبلغ به تومان داده می‌شود و به ریال تبدیل می‌شود.
- * دستگاه معمولاً تا ۲ دقیقه منتظر کشیدن کارت می‌ماند.
+ * انتظار برای نتیجهٔ نهایی یک تراکنش با پرسیدن مکرر /status — وقتی اتصال HTTP پرداخت قطع
+ * شد یا صفحه وسط پرداخت رفرش شد. هرگز دوباره پرداخت نمی‌کند.
+ */
+export async function posWaitForResult(
+  transactionId: string,
+  opts: {
+    deadlineMs?: number;
+    intervalMs?: number;
+    onStatus?: (r: PosResult) => void;
+    /** اگر سرویس پل از همان ابتدا در دسترس نبود، زود اعلام شود (درخواست اصلاً نرسیده) */
+    failFastIfUnreachable?: boolean;
+  } = {},
+): Promise<PosResult> {
+  const deadline = Date.now() + (opts.deadlineMs ?? 180_000);
+  const interval = opts.intervalMs ?? 1500;
+  let notFound = 0;
+  let unreachable = 0;
+  let reached = false;
+  let last: PosResult | null = null;
+  while (Date.now() < deadline) {
+    try {
+      const r = await posTransactionStatus(transactionId);
+      reached = true;
+      if (r === null) {
+        // سرویس پل این تراکنش را ندارد → اصلاً به دستگاه نرسیده است
+        if (++notFound >= 3) {
+          posLog("pay:not-started", { transactionId });
+          return {
+            success: false,
+            final: true,
+            transactionId,
+            message: "درخواست پرداخت به کارت‌خوان نرسید؛ می‌توانید دوباره تلاش کنید",
+          };
+        }
+      } else {
+        last = r;
+        opts.onStatus?.(r);
+        if (r.final) return r;
+      }
+    } catch {
+      // سرویس پل موقتاً در دسترس نیست؛ دوباره می‌پرسیم
+      if (opts.failFastIfUnreachable && !reached && ++unreachable >= 3) {
+        posLogError("pay:bridge-down", { transactionId });
+        return {
+          success: false,
+          // تا وقتی سرویس دوباره بالا بیاید و نبودِ تراکنش را تأیید کند، نهایی نیست
+          final: false,
+          uncertain: false,
+          transactionId,
+          message: "سرویس کارت‌خوان (pos-bridge) روی این رایانه در دسترس نیست",
+        };
+      }
+    }
+    await sleep(interval);
+  }
+  posLogError("pay:status-unknown", { transactionId, last });
+  return {
+    success: false,
+    final: false,
+    uncertain: true,
+    transactionId,
+    status: last?.status,
+    message:
+      "ارتباط با سرویس کارت‌خوان قطع شد و نتیجهٔ پرداخت هنوز معلوم نیست. اگر مبلغ کسر شده، رسید کارت‌خوان را به متصدی نشان دهید.",
+  };
+}
+
+/**
+ * پرداخت با کارت‌خوان. مبلغ به تومان داده و به ریال تبدیل می‌شود.
+ *
+ * ایمنی: هر پرداخت یک transactionId دارد. اگر پاسخ HTTP گم شود (قطع شبکه، رفرش، ری‌استارت)
+ * نتیجه از /status خوانده می‌شود و درخواست پرداخت هرگز دوباره فرستاده نمی‌شود. برای لغو از
+ * posCancel استفاده کنید؛ این تابع تا رسیدن نتیجهٔ واقعی دستگاه (حتی پس از لغو) صبر می‌کند تا
+ * پولی که مشتری همان لحظه پرداخته گم نشود.
  */
 export async function posPay(
-  params: { amountToman: number; invoiceNumber: string },
-  opts: { signal?: AbortSignal; timeoutMs?: number } = {},
+  params: { amountToman: number; invoiceNumber: string; transactionId?: string },
+  opts: { timeoutMs?: number; statusDeadlineMs?: number; onStatus?: (r: PosResult) => void } = {},
 ): Promise<PosResult> {
-  const ctrl = new AbortController();
-  const t = setTimeout(() => ctrl.abort(), opts.timeoutMs ?? 150_000);
-  opts.signal?.addEventListener("abort", () => ctrl.abort());
-  posLog("pay:start", { invoice: params.invoiceNumber, amountToman: params.amountToman });
+  const transactionId = params.transactionId ?? newTransactionId();
+  const amountRial = Math.round(params.amountToman) * 10;
+  if (!Number.isSafeInteger(amountRial) || amountRial <= 0) {
+    return { success: false, final: true, transactionId, message: "مبلغ پرداخت نامعتبر است" };
+  }
+
+  const started = Date.now();
+  posLog("pay:start", {
+    transactionId,
+    invoice: params.invoiceNumber,
+    amountToman: params.amountToman,
+  });
+  let res: Response;
   try {
-    const res = await fetch(`${getBridgeUrl()}/pay`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        amountRial: params.amountToman * 10,
-        amountToman: params.amountToman,
-        invoiceNumber: params.invoiceNumber,
-        terminalId: getTerminalId(),
-        merchantId: getMerchantId(),
-      }),
-      signal: ctrl.signal,
-    });
-    if (!res.ok) {
-      posLogError("pay:bad-status", { status: res.status, invoice: params.invoiceNumber });
-      return { success: false, message: `خطای سرویس کارت‌خوان (${res.status})` };
-    }
-    const result = (await res.json()) as PosResult;
-    if (result.success) posLog("pay:approved", { invoice: params.invoiceNumber, ref: result.refNumber });
-    else posLogError("pay:declined", { invoice: params.invoiceNumber, result });
-    return result;
+    res = await req(
+      "/pay",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          transactionId,
+          amountRial,
+          amountToman: Math.round(params.amountToman),
+          invoiceNumber: params.invoiceNumber,
+        }),
+      },
+      opts.timeoutMs ?? 200_000,
+    );
   } catch (e) {
-    const aborted = (e as Error).name === "AbortError";
-    posLogError(aborted ? "pay:aborted" : "pay:network-error", {
-      invoice: params.invoiceNumber,
-      error: (e as Error).message,
+    // درخواست شاید به سرویس رسیده و پرداخت در جریان باشد → فقط وضعیت را می‌پرسیم
+    posLogError("pay:connection-lost", { transactionId, error: (e as Error).message });
+    return posWaitForResult(transactionId, {
+      deadlineMs: opts.statusDeadlineMs,
+      onStatus: opts.onStatus,
+      // خطای فوری یعنی اتصال اصلاً برقرار نشد (سرویس اجرا نیست)
+      failFastIfUnreachable: Date.now() - started < 3000,
     });
+  }
+
+  const body = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+  if (res.status === 409 && body.code === "IN_PROGRESS") {
+    return posWaitForResult(transactionId, {
+      deadlineMs: opts.statusDeadlineMs,
+      onStatus: opts.onStatus,
+    });
+  }
+  if (!res.ok) {
+    // پرداخت شروع نشده است (مشغول، ورودی نامعتبر، دسترسی) — کسر وجهی رخ نداده
+    posLogError("pay:rejected", { transactionId, status: res.status, body });
     return {
       success: false,
-      message: aborted
-        ? "تراکنش لغو شد یا زمان انتظار به پایان رسید"
-        : "اتصال به سرویس کارت‌خوان برقرار نشد",
+      final: true,
+      transactionId,
+      message:
+        typeof body.message === "string" && res.status !== 401 && res.status !== 403
+          ? body.message
+          : bridgeHttpError(res.status),
     };
-  } finally {
-    clearTimeout(t);
+  }
+
+  const result = normalizePosResult(body, transactionId);
+  if (result.success) posLog("pay:approved", { transactionId, ref: result.refNumber });
+  else posLogError("pay:not-approved", { transactionId, result });
+  return result;
+}
+
+/**
+ * درخواست لغو تراکنش جاری. کارت‌خوان فرمان لغو ندارد؛ سرویس پل چند ثانیه برای نتیجهٔ نهایی
+ * صبر می‌کند و posPay همان نتیجه را برمی‌گرداند (اگر مشتری همان لحظه پرداخت کرده باشد، فروش ثبت می‌شود).
+ */
+export async function posCancel(
+  transactionId?: string,
+): Promise<{ accepted: boolean; message: string }> {
+  try {
+    posLog("cancel:request", { transactionId });
+    const res = await req(
+      "/cancel",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ transactionId }),
+      },
+      5000,
+    );
+    const body = (await res.json().catch(() => ({}))) as { accepted?: boolean; message?: string };
+    return { accepted: body.accepted === true, message: body.message ?? "" };
+  } catch (e) {
+    posLogError("cancel:failed", (e as Error).message);
+    return { accepted: false, message: "سرویس کارت‌خوان در دسترس نیست" };
   }
 }
 
-/** لغو تراکنش جاری روی دستگاه */
-export async function posCancel(): Promise<void> {
+/* ------------------------------------------------------------------ */
+/*  دفتر تراکنش‌ها و بررسی تراکنش‌های نامطمئن                         */
+/* ------------------------------------------------------------------ */
+
+export interface PosTransactionRecord extends PosResult {
+  messageId?: number;
+  invoiceNumber?: string;
+  amountRial?: number;
+  createdAt?: string;
+  completedAt?: string;
+  cancelRequested?: boolean;
+  lateResponse?: boolean;
+  reviewed?: boolean;
+  note?: string;
+  via?: string;
+}
+
+export async function posTransactions(limit = 50): Promise<{
+  ok: boolean;
+  items: PosTransactionRecord[];
+  needsReview: number;
+  message: string;
+}> {
   try {
-    posLog("cancel:request");
-    await req("/cancel", { method: "POST" }, 5000);
-  } catch (e) {
-    posLogError("cancel:failed", (e as Error).message);
+    const res = await req(`/transactions?limit=${limit}`, { method: "GET" }, 6000);
+    if (!res.ok)
+      return { ok: false, items: [], needsReview: 0, message: bridgeHttpError(res.status) };
+    const body = (await res.json()) as { items?: Record<string, unknown>[]; needsReview?: number };
+    const items = (body.items ?? []).map((raw) => {
+      const r = normalizePosResult(raw, String(raw.transactionId ?? ""));
+      return {
+        ...r,
+        messageId: typeof raw.messageId === "number" ? raw.messageId : undefined,
+        invoiceNumber: typeof raw.invoiceNumber === "string" ? raw.invoiceNumber : undefined,
+        amountRial: typeof raw.amountRial === "number" ? raw.amountRial : undefined,
+        createdAt: typeof raw.createdAt === "string" ? raw.createdAt : undefined,
+        completedAt: typeof raw.completedAt === "string" ? raw.completedAt : undefined,
+        cancelRequested: raw.cancelRequested === true,
+        lateResponse: raw.lateResponse === true,
+        reviewed: raw.reviewed === true,
+        note: typeof raw.note === "string" ? raw.note : undefined,
+        via: typeof raw.via === "string" ? raw.via : undefined,
+      } satisfies PosTransactionRecord;
+    });
+    return {
+      ok: true,
+      items,
+      needsReview: body.needsReview ?? 0,
+      message: `${items.length} تراکنش`,
+    };
+  } catch {
+    return { ok: false, items: [], needsReview: 0, message: "سرویس کارت‌خوان در دسترس نیست" };
+  }
+}
+
+/** علامت «بررسی شد» برای تراکنش نامطمئن (پس از بازگشت وجه یا صدور دستی بلیط) */
+export async function posMarkReviewed(transactionId: string, note = ""): Promise<boolean> {
+  try {
+    const res = await req(
+      "/transactions/review",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ transactionId, note }),
+      },
+      5000,
+    );
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+export type PosResponseMode = "auto" | "same" | "callback";
+export type PosProtocol = "native" | "sdk";
+
+/** تنظیمات پروتکل سرویس پل (نحوهٔ برگشت پاسخ دستگاه) */
+export async function posGetProtocol(): Promise<{
+  ok: boolean;
+  protocol?: PosProtocol;
+  responseMode?: PosResponseMode;
+  timeoutSeconds?: number;
+  tokenRequired?: boolean;
+}> {
+  try {
+    const res = await req("/config", { method: "GET" }, 5000);
+    if (!res.ok) return { ok: false };
+    const b = (await res.json()) as {
+      protocol?: PosProtocol;
+      responseMode?: PosResponseMode;
+      timeoutSeconds?: number;
+      tokenRequired?: boolean;
+    };
+    return { ok: true, ...b };
+  } catch {
+    return { ok: false };
+  }
+}
+
+export async function posSaveProtocol(settings: {
+  protocol: PosProtocol;
+  responseMode: PosResponseMode;
+  timeoutSeconds: number;
+}): Promise<{ ok: boolean; message: string }> {
+  try {
+    const res = await req(
+      "/config",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(settings),
+      },
+      8000,
+    );
+    if (res.status === 409)
+      return { ok: false, message: "کارت‌خوان مشغول تراکنش است؛ بعد از پایان آن ذخیره کنید" };
+    if (!res.ok) return { ok: false, message: bridgeHttpError(res.status) };
+    return { ok: true, message: "تنظیمات پروتکل ذخیره و اعمال شد" };
+  } catch {
+    return { ok: false, message: "سرویس کارت‌خوان در دسترس نیست" };
   }
 }
 
@@ -954,7 +1301,6 @@ export async function posPrintTicket(
   }
 }
 
-
 /* ------------------------------------------------------------------ */
 /*  گزارش پشتیبانی                                                     */
 /* ------------------------------------------------------------------ */
@@ -992,7 +1338,8 @@ function kioskInfo(): Record<string, string | number | boolean> {
     viewport: `${window.innerWidth}x${window.innerHeight}`,
     devicePixelRatio: window.devicePixelRatio,
     orientation: window.screen.height >= window.screen.width ? "portrait" : "landscape",
-    expectedKiosk: "Windows 10 Enterprise 22H2 (19045) • Core i5-7500 • 8GB • 1080x1920 لمسی ۱۰ نقطه",
+    expectedKiosk:
+      "Windows 10 Enterprise 22H2 (19045) • Core i5-7500 • 8GB • 1080x1920 لمسی ۱۰ نقطه",
   };
 }
 
@@ -1008,7 +1355,17 @@ export function enrichPings(records: PosPingRecord[]): PosSupportReportPing[] {
 export function pingsToCsv(records: PosPingRecord[] = getPingHistory()): string {
   const esc = (v: string) => `"${(v ?? "").replace(/"/g, '""')}"`;
   const rows: string[][] = [
-    ["زمان شمسی", "زمان میلادی", "نتیجه", "مقصد", "RTT (ms)", "مرحله", "کد خطا", "منشأ خطا", "پیام"],
+    [
+      "زمان شمسی",
+      "زمان میلادی",
+      "نتیجه",
+      "مقصد",
+      "RTT (ms)",
+      "مرحله",
+      "کد خطا",
+      "منشأ خطا",
+      "پیام",
+    ],
     ...enrichPings(records).map((p) => [
       new Date(p.at).toLocaleString("fa-IR"),
       p.at,
@@ -1081,7 +1438,10 @@ export function supportReportText(r: PosSupportReport): string {
     line("آخرین کد خطا", lastCode ? `${lastCode} — ${info.label}` : "—"),
     line("راهنما", lastCode ? info.hint : "—"),
     line("آخرین اتصال موفق", r.connection.lastOkAt ?? "—"),
-    line("آخرین زمان پاسخ", r.connection.lastLatencyMs != null ? `${r.connection.lastLatencyMs}ms` : "—"),
+    line(
+      "آخرین زمان پاسخ",
+      r.connection.lastLatencyMs != null ? `${r.connection.lastLatencyMs}ms` : "—",
+    ),
     line("آخرین خطا", r.connection.lastError ?? "—"),
     line("آخرین مرحله", r.connection.lastStepKey ?? "—"),
     "",

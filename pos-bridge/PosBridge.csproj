@@ -3,7 +3,7 @@
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <!-- کتابخانه‌های کارت‌خوان فقط روی ویندوز و روی .NET Framework کار می‌کنند -->
+    <!-- کتابخانهٔ کارت‌خوان فقط روی ویندوز و روی .NET Framework کار می‌کند -->
     <TargetFramework>net48</TargetFramework>
     <AssemblyName>PosBridge</AssemblyName>
     <RootNamespace>PosBridge</RootNamespace>
@@ -13,14 +13,20 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <!-- کتابخانهٔ رسمی PC-POS (در lib\PosInterface.dll موجود است) -->
+    <!-- پروژهٔ تست جداگانه است و نباید داخل سرویس کامپایل شود -->
+    <Compile Remove="tests/**" />
+    <None Remove="tests/**" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- بدون نصب Developer Pack هم build شود (روی خود کیوسک یا CI) -->
+    <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.3" PrivateAssets="all" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- کتابخانهٔ رسمی PC-POS — فقط برای protocol = "sdk" یا اتصال USB -->
     <Reference Include="PosInterface">
       <HintPath>lib\PosInterface.dll</HintPath>
-      <Private>true</Private>
-    </Reference>
-    <!-- کتابخانهٔ قدیمی پارسیان؛ در صورت وجود کنار پروژه استفاده می‌شود -->
-    <Reference Include="pec.pcpos" Condition="Exists('lib\pec.pcpos.dll')">
-      <HintPath>lib\pec.pcpos.dll</HintPath>
       <Private>true</Private>
     </Reference>
     <Reference Include="System.Drawing" />

@@ -3,7 +3,7 @@
  * یک سرویس ماک pos-bridge روی لوکال‌هاست بالا می‌آید تا بدون دستگاه واقعی
  * همهٔ حالت‌های موفق/ناموفق/قطع اتصال/لغو آزمایش شوند.
  */
-import { createServer, type Server } from "node:http";
+import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
@@ -17,8 +17,10 @@ import {
   posConnectSequence,
   posDiscover,
   posHealth,
+  posCancel,
   posPay,
   posPing,
+  posTransactionStatus,
   posStepHint,
   saveConnectionState,
   setBridgeUrl,
@@ -27,7 +29,15 @@ import {
   setTerminalId,
   type PosStep,
 } from "@/lib/pos";
-import { saveInvoice, type InvoiceDb, type InvoiceLine } from "@/lib/invoice";
+import {
+  flushInvoiceOutbox,
+  invoiceOutboxSize,
+  newInvoiceNumber,
+  saveInvoice,
+  savePaidInvoice,
+  type InvoiceDb,
+  type InvoiceLine,
+} from "@/lib/invoice";
 
 // localStorage ساده برای محیط node
 const store = new Map<string, string>();
@@ -52,8 +62,45 @@ vi.stubGlobal("navigator", {
   hardwareConcurrency: 4,
 });
 
-type Mode = "approve" | "decline" | "hang" | "error";
+/**
+ * approve / decline / error: پاسخ فوری
+ * hang: پرداخت منتظر می‌ماند تا /cancel برسد (لغو → cancelled)
+ * approve-on-cancel: مشتری همان لحظهٔ لغو کارت کشیده است (لغو → approved)
+ * approve-lost: پرداخت تأیید می‌شود ولی پاسخ HTTP هرگز نمی‌رسد (فقط از /status معلوم است)
+ * busy: سرویس پل مشغول تراکنش دیگری است
+ */
+type Mode =
+  "approve" | "decline" | "hang" | "error" | "approve-on-cancel" | "approve-lost" | "busy";
 let mode: Mode = "approve";
+let lastPayHeaders: IncomingMessage["headers"] = {};
+let lastPayBody: Record<string, unknown> = {};
+const txs = new Map<string, Record<string, unknown>>();
+const held = new Map<string, ServerResponse>();
+
+function approved(id: string, amountRial: number) {
+  return {
+    transactionId: id,
+    success: true,
+    status: "approved",
+    final: true,
+    uncertain: false,
+    needsReview: false,
+    amountRial,
+    responseCode: "0",
+    refNumber: "123456789",
+    maskedPan: "622106******1234",
+    terminalId: "5634056",
+    message: "تراکنش موفق",
+  };
+}
+
+function readBody(req: IncomingMessage): Promise<Record<string, unknown>> {
+  return new Promise((resolve) => {
+    let data = "";
+    req.on("data", (c) => (data += c));
+    req.on("end", () => resolve(data ? (JSON.parse(data) as Record<string, unknown>) : {}));
+  });
+}
 let deviceUp = true;
 let requireToken = false;
 let server: Server;
@@ -125,32 +172,94 @@ beforeAll(async () => {
       return;
     }
 
+    if (req.url?.startsWith("/status")) {
+      const id = new URL(req.url, "http://x").searchParams.get("id") ?? "";
+      const tx = txs.get(id);
+      res.writeHead(tx ? 200 : 404, { "content-type": "application/json" });
+      res.end(JSON.stringify(tx ?? { success: false, message: "not found" }));
+      return;
+    }
     if (req.url === "/cancel") {
-      res.writeHead(200);
-      res.end("{}");
+      void readBody(req).then((b) => {
+        const id = String(b.transactionId ?? "");
+        const pending = held.get(id);
+        if (pending) {
+          held.delete(id);
+          const tx = txs.get(id)!;
+          const result =
+            mode === "approve-on-cancel"
+              ? approved(id, Number(tx.amountRial))
+              : {
+                  transactionId: id,
+                  success: false,
+                  status: "cancelled",
+                  final: true,
+                  uncertain: false,
+                  message: "تراکنش لغو شد",
+                };
+          txs.set(id, result);
+          pending.writeHead(200, { "content-type": "application/json" });
+          pending.end(JSON.stringify(result));
+        }
+        res.writeHead(200, { "content-type": "application/json" });
+        res.end(JSON.stringify({ accepted: !!pending, message: "ok" }));
+      });
       return;
     }
     if (req.url === "/pay") {
-      if (mode === "hang") return; // بدون پاسخ → timeout / لغو
-      if (mode === "error") {
-        res.writeHead(500);
-        res.end("boom");
-        return;
-      }
-      res.writeHead(200, { "content-type": "application/json" });
-      res.end(
-        JSON.stringify(
+      lastPayHeaders = req.headers;
+      void readBody(req).then((b) => {
+        lastPayBody = b;
+        const id = String(b.transactionId);
+        const amountRial = Number(b.amountRial);
+        if (mode === "busy") {
+          res.writeHead(409, { "content-type": "application/json" });
+          res.end(
+            JSON.stringify({
+              success: false,
+              final: true,
+              code: "DEV_BUSY",
+              message: "کارت‌خوان مشغول است",
+            }),
+          );
+          return;
+        }
+        if (mode === "error") {
+          res.writeHead(500);
+          res.end("boom");
+          return;
+        }
+        if (mode === "hang" || mode === "approve-on-cancel") {
+          txs.set(id, {
+            transactionId: id,
+            success: false,
+            status: "sent",
+            final: false,
+            amountRial,
+          });
+          held.set(id, res);
+          return;
+        }
+        if (mode === "approve-lost") {
+          txs.set(id, approved(id, amountRial));
+          return; // پاسخ HTTP هرگز فرستاده نمی‌شود
+        }
+        const result =
           mode === "approve"
-            ? {
-                success: true,
-                responseCode: "00",
-                refNumber: "123456789",
-                maskedPan: "6221-06**-****-1234",
-                terminalId: "5634056",
-              }
-            : { success: false, responseCode: "51", message: "موجودی کافی نیست" },
-        ),
-      );
+            ? approved(id, amountRial)
+            : {
+                transactionId: id,
+                success: false,
+                status: "declined",
+                final: true,
+                uncertain: false,
+                responseCode: "51",
+                message: "موجودی کافی نیست",
+              };
+        txs.set(id, result);
+        res.writeHead(200, { "content-type": "application/json" });
+        res.end(JSON.stringify(result));
+      });
       return;
     }
     res.writeHead(404);
@@ -245,39 +354,124 @@ describe("پرداخت کارت‌خوان و ثبت فاکتور", () => {
     mode = "decline";
     const pos = await posPay({ amountToman: 200000, invoiceNumber: "INV-2" });
     expect(pos.success).toBe(false);
+    expect(pos.final).toBe(true);
+    expect(pos.uncertain).toBe(false);
     expect(pos.message).toBe("موجودی کافی نیست");
   });
 
-  it("خطای سرویس پل → پیام خطای وضعیت HTTP", async () => {
+  it("مبلغ به ریال، شناسهٔ تراکنش و توکن دسترسی همراه درخواست پرداخت فرستاده می‌شود", async () => {
+    setPosAccessToken("s3cr3t");
+    const pos = await posPay({
+      amountToman: 12345,
+      invoiceNumber: "INV-T",
+      transactionId: "tx-fixed-0001",
+    });
+    setPosAccessToken("");
+    expect(pos.success).toBe(true);
+    expect(pos.transactionId).toBe("tx-fixed-0001");
+    expect(lastPayHeaders["x-pos-token"]).toBe("s3cr3t");
+    expect(lastPayHeaders["content-type"]).toContain("application/json");
+    expect(lastPayBody).toMatchObject({
+      amountRial: 123450,
+      amountToman: 12345,
+      transactionId: "tx-fixed-0001",
+    });
+  });
+
+  it("مبلغ نامعتبر اصلاً به کارت‌خوان فرستاده نمی‌شود", async () => {
+    lastPayBody = {};
+    const pos = await posPay({ amountToman: 0, invoiceNumber: "INV-0" });
+    expect(pos.success).toBe(false);
+    expect(lastPayBody).toEqual({});
+  });
+
+  it("خطای سرویس پل → پیام خطای وضعیت HTTP و نتیجهٔ قطعی (کسر وجه نشده)", async () => {
     mode = "error";
     const pos = await posPay({ amountToman: 1000, invoiceNumber: "INV-3" });
     expect(pos.success).toBe(false);
+    expect(pos.final).toBe(true);
+    expect(pos.uncertain).toBeFalsy();
     expect(pos.message).toContain("500");
   });
 
-  it("timeout → پیام پایان زمان انتظار", async () => {
-    mode = "hang";
-    const pos = await posPay({ amountToman: 1000, invoiceNumber: "INV-4" }, { timeoutMs: 300 });
+  it("کارت‌خوان مشغول → پرداخت شروع نمی‌شود", async () => {
+    mode = "busy";
+    const pos = await posPay({ amountToman: 1000, invoiceNumber: "INV-B" });
     expect(pos.success).toBe(false);
-    expect(pos.message).toContain("زمان انتظار");
+    expect(pos.final).toBe(true);
+    expect(pos.message).toContain("مشغول");
   });
 
-  it("لغو تراکنش توسط کاربر → پیام لغو", async () => {
+  it("پاسخ HTTP گم شد ولی پرداخت تأیید شده بود → نتیجه از /status بازیابی می‌شود", async () => {
+    mode = "approve-lost";
+    const pos = await posPay(
+      { amountToman: 5000, invoiceNumber: "INV-L" },
+      { timeoutMs: 300, statusDeadlineMs: 5000 },
+    );
+    expect(pos.success).toBe(true);
+    expect(pos.refNumber).toBe("123456789");
+  });
+
+  it("پاسخ گم شد و پرداخت هنوز در جریان است → «نامشخص»، نه «ناموفق»", async () => {
     mode = "hang";
-    const ctrl = new AbortController();
-    setTimeout(() => ctrl.abort(), 100);
-    const pos = await posPay({ amountToman: 1000, invoiceNumber: "INV-5" }, { signal: ctrl.signal });
+    const pos = await posPay(
+      { amountToman: 1000, invoiceNumber: "INV-4" },
+      { timeoutMs: 300, statusDeadlineMs: 1200 },
+    );
     expect(pos.success).toBe(false);
+    expect(pos.uncertain).toBe(true);
+    expect(pos.final).toBe(false);
+    expect(pos.message).toContain("معلوم نیست");
+    await posCancel(pos.transactionId);
+  });
+
+  it("لغو تراکنش → منتظر نتیجهٔ واقعی دستگاه می‌ماند و «لغو شد» برمی‌گرداند", async () => {
+    mode = "hang";
+    const paying = posPay({
+      amountToman: 1000,
+      invoiceNumber: "INV-5",
+      transactionId: "tx-cancel-0001",
+    });
+    await new Promise((r) => setTimeout(r, 100));
+    const c = await posCancel("tx-cancel-0001");
+    expect(c.accepted).toBe(true);
+    const pos = await paying;
+    expect(pos.success).toBe(false);
+    expect(pos.status).toBe("cancelled");
     expect(pos.message).toContain("لغو");
   });
 
-  it("سرویس در دسترس نیست → پیام اتصال برقرار نشد", async () => {
-    setBridgeUrl("http://127.0.0.1:1");
-    const pos = await posPay({ amountToman: 1000, invoiceNumber: "INV-6" });
-    expect(pos.success).toBe(false);
-    expect(pos.message).toContain("اتصال");
-    setBridgeUrl(`http://127.0.0.1:${port}`);
+  it("مشتری همان لحظهٔ لغو کارت کشیده → پرداخت موفق حفظ می‌شود (پول گم نمی‌شود)", async () => {
+    mode = "approve-on-cancel";
+    const paying = posPay({
+      amountToman: 1000,
+      invoiceNumber: "INV-5b",
+      transactionId: "tx-cancel-0002",
+    });
+    await new Promise((r) => setTimeout(r, 100));
+    await posCancel("tx-cancel-0002");
+    const pos = await paying;
+    expect(pos.success).toBe(true);
+    expect(pos.refNumber).toBe("123456789");
   });
+
+  it("وضعیت تراکنش با شناسه قابل پرسش است؛ تراکنش ناشناخته null است", async () => {
+    await posPay({ amountToman: 1000, invoiceNumber: "INV-S", transactionId: "tx-status-0001" });
+    const st = await posTransactionStatus("tx-status-0001");
+    expect(st?.status).toBe("approved");
+    expect(await posTransactionStatus("tx-unknown-0001")).toBeNull();
+  });
+
+  it("سرویس اجرا نیست → سریع پیام «در دسترس نیست» (بدون انتظار طولانی)", async () => {
+    setBridgeUrl("http://127.0.0.1:1");
+    const started = Date.now();
+    const pos = await posPay({ amountToman: 1000, invoiceNumber: "INV-6" });
+    expect(Date.now() - started).toBeLessThan(15_000);
+    expect(pos.success).toBe(false);
+    expect(pos.uncertain).toBe(false);
+    expect(pos.message).toContain("در دسترس نیست");
+    setBridgeUrl(`http://127.0.0.1:${port}`);
+  }, 20_000);
 
   it("پرداخت موفق ولی خطای ثبت فاکتور → هشدار یادداشت کد پیگیری", async () => {
     const pos = await posPay({ amountToman: 200000, invoiceNumber: "INV-7" });
@@ -307,6 +501,66 @@ describe("پرداخت کارت‌خوان و ثبت فاکتور", () => {
     expect(res.message).toContain("دوباره تلاش");
   });
 
+  it("پرداخت موفق + قطع پایگاه‌داده → فاکتور در صف می‌ماند و بعداً ثبت می‌شود", async () => {
+    const pos = await posPay({ amountToman: 200000, invoiceNumber: "INV-Q" });
+    const down = makeDb("invoices");
+    const res = await savePaidInvoice(down.db, {
+      invoiceNumber: "INV-Q",
+      total: 200000,
+      method: "card",
+      items,
+      pos,
+    });
+    expect(res.ok).toBe(false);
+    expect(res.queued).toBe(true);
+    expect(invoiceOutboxSize()).toBe(1);
+
+    const up = makeDb();
+    const flushed = await flushInvoiceOutbox(up.db);
+    expect(flushed).toEqual({ saved: 1, remaining: 0 });
+    expect(up.calls).toEqual(["invoices", "invoice_items"]);
+  });
+
+  it("تلاش دوباره وقتی خود فاکتور قبلاً ثبت شده بود، فقط اقلام را ثبت می‌کند", async () => {
+    const calls: string[] = [];
+    const db: InvoiceDb = {
+      from(table: string) {
+        return {
+          async insert() {
+            calls.push(table);
+            return table === "invoices"
+              ? {
+                  error: {
+                    code: "23505",
+                    message: 'duplicate key value violates unique constraint "invoices_pkey"',
+                  },
+                }
+              : { error: null };
+          },
+        };
+      },
+    };
+    const res = await saveInvoice(db, {
+      invoiceNumber: "INV-R",
+      total: 1000,
+      method: "card",
+      items,
+      invoiceId: "22222222-2222-2222-2222-222222222222",
+    });
+    expect(res.ok).toBe(true);
+    expect(calls).toEqual(["invoices", "invoice_items"]);
+  });
+
+  it("شمارهٔ فاکتور قالب ثابت و بخش تصادفی ۱۰ رقمی دارد و تکرار نمی‌شود", () => {
+    const seen = new Set<string>();
+    for (let i = 0; i < 2000; i++) {
+      const n = newInvoiceNumber(new Date(2026, 9, 26));
+      expect(n).toMatch(/^INV-20261026-\d{10}$/);
+      seen.add(n);
+    }
+    expect(seen.size).toBe(2000);
+  });
+
   it("پرداخت نقدی بدون کارت‌خوان ثبت می‌شود", async () => {
     const { db } = makeDb();
     const res = await saveInvoice(db, {
@@ -318,7 +572,6 @@ describe("پرداخت کارت‌خوان و ثبت فاکتور", () => {
     expect(res.ok).toBe(true);
   });
 });
-
 
 describe("تست ارتباط و توالی اتصال کارت‌خوان", () => {
   it("درخواست بدون توکن با ۴۰۱ رد می‌شود", async () => {
@@ -387,7 +640,6 @@ describe("تست ارتباط و توالی اتصال کارت‌خوان", () 
     expect([0, 1, 2, 3, 4, 5, 9].map(posBackoffSeconds)).toEqual([2, 4, 8, 16, 30, 30, 30]);
   });
 });
-
 
 describe("ماندگاری وضعیت اتصال و گزارش پشتیبانی", () => {
   beforeEach(() => clearConnectionState());
@@ -507,8 +759,23 @@ describe("گزارش پشتیبانی با RTT و منشأ خطا", () => {
   it("CSV تلاش‌های اتصال ستون RTT و منشأ خطا دارد", async () => {
     const { pingsToCsv } = await import("../src/lib/pos");
     const csv = pingsToCsv([
-      { at: new Date().toISOString(), ok: true, latencyMs: 42, message: "پاسخ داد", target: "192.168.16.87:8080", stage: "handshake" },
-      { at: new Date().toISOString(), ok: false, code: "NET_TIMEOUT", latencyMs: 5000, message: "timeout", target: "192.168.16.87:8080", stage: "network" },
+      {
+        at: new Date().toISOString(),
+        ok: true,
+        latencyMs: 42,
+        message: "پاسخ داد",
+        target: "192.168.16.87:8080",
+        stage: "handshake",
+      },
+      {
+        at: new Date().toISOString(),
+        ok: false,
+        code: "NET_TIMEOUT",
+        latencyMs: 5000,
+        message: "timeout",
+        target: "192.168.16.87:8080",
+        stage: "network",
+      },
     ]);
     expect(csv.startsWith("\uFEFF")).toBe(true);
     expect(csv).toContain("RTT (ms)");
@@ -518,9 +785,23 @@ describe("گزارش پشتیبانی با RTT و منشأ خطا", () => {
   });
 
   it("متن گزارش شامل خلاصهٔ کیفیت شبکه است", async () => {
-    const { buildSupportReport, supportReportText, pushPingHistory } = await import("../src/lib/pos");
-    pushPingHistory({ at: new Date().toISOString(), ok: true, latencyMs: 80, message: "ok", target: "x" });
-    pushPingHistory({ at: new Date().toISOString(), ok: false, code: "DEV_HANDSHAKE_FAILED", latencyMs: 3000, message: "no", target: "x" });
+    const { buildSupportReport, supportReportText, pushPingHistory } =
+      await import("../src/lib/pos");
+    pushPingHistory({
+      at: new Date().toISOString(),
+      ok: true,
+      latencyMs: 80,
+      message: "ok",
+      target: "x",
+    });
+    pushPingHistory({
+      at: new Date().toISOString(),
+      ok: false,
+      code: "DEV_HANDSHAKE_FAILED",
+      latencyMs: 3000,
+      message: "no",
+      target: "x",
+    });
     const r = buildSupportReport();
     expect(r.quality.attempts).toBe(2);
     expect(r.pingAttempts[1].source).toBe("device");
@@ -532,7 +813,11 @@ describe("گزارش پشتیبانی با RTT و منشأ خطا", () => {
 
   it("CSV سوابق دسترسی ستون RTT و منشأ را ثبت می‌کند", async () => {
     const { logAudit, auditToCsv } = await import("../src/lib/pos-audit");
-    logAudit("identity:mismatch", { code: "DEV_MODEL_MISMATCH", rttMs: 120, source: "دستگاه کارت‌خوان" });
+    logAudit("identity:mismatch", {
+      code: "DEV_MODEL_MISMATCH",
+      rttMs: 120,
+      source: "دستگاه کارت‌خوان",
+    });
     const csv = auditToCsv();
     expect(csv).toContain("DEV_MODEL_MISMATCH");
     expect(csv).toContain("120");
@@ -544,7 +829,9 @@ describe("گزارش پشتیبانی با RTT و منشأ خطا", () => {
     expect(needsIdentityRecovery(checkDeviceIdentity({ model: "PAX S920" }))).toBe(true);
     expect(needsIdentityRecovery(checkDeviceIdentity({ firmware: "17.00.00" }))).toBe(true);
     expect(needsIdentityRecovery(checkDeviceIdentity({ serialNumber: "999" }))).toBe(false);
-    expect(needsIdentityRecovery(checkDeviceIdentity({ model: "PAX Q58 LAN + LINE + WIFI" }))).toBe(false);
+    expect(needsIdentityRecovery(checkDeviceIdentity({ model: "PAX Q58 LAN + LINE + WIFI" }))).toBe(
+      false,
+    );
   });
 
   it("تشخیص زیرشبکهٔ ناهمخوان و آدرس APIPA", async () => {

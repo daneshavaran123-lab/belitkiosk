@@ -33,3 +33,11 @@ dist-ssr
 
 # Electron desktop build
 electron-release/
+
+# pos-bridge build output and runtime data
+pos-bridge/bin/
+pos-bridge/obj/
+pos-bridge/data/
+pos-bridge/logs/
+pos-bridge/tests/**/bin/
+pos-bridge/tests/**/obj/

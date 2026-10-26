@@ -1,0 +1,29 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    آزمون‌های واحد و یکپارچهٔ لایهٔ پرداخت. فایل‌های پروتکل از خود سرویس لینک می‌شوند
+    تا روی هر سیستم‌عاملی (و در CI) بدون ویندوز اجرا شوند:  dotnet test pos-bridge/tests/PosBridge.Tests
+  -->
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <IsPackable>false</IsPackable>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <RootNamespace>PosBridge.Tests</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="../../PcPosProtocol.cs" Link="Bridge/PcPosProtocol.cs" />
+    <Compile Include="../../PcPosLanClient.cs" Link="Bridge/PcPosLanClient.cs" />
+    <Compile Include="../../TransactionJournal.cs" Link="Bridge/TransactionJournal.cs" />
+    <Compile Include="../../FlatJson.cs" Link="Bridge/FlatJson.cs" />
+    <Compile Include="../../PosLog.cs" Link="Bridge/PosLog.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.11.1" />
+    <PackageReference Include="xunit" Version="2.9.2" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2" />
+  </ItemGroup>
+
+</Project>

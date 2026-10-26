@@ -1,114 +1,244 @@
 using System;
 using System.Collections.Generic;
 using System.Net.Sockets;
-using System.Reflection;
-using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading;
 
 namespace PosBridge
 {
     /// <summary>
-    /// لایهٔ ارتباط با کارت‌خوان پارسیان (PAX Q58 و مشابه).
+    /// لایهٔ پرداخت با کارت‌خوان (PAX Q58 و مشابه با پروتکل PC-POS).
     ///
-    /// دو حالت اتصال پشتیبانی می‌شود:
-    ///   • lan → دستگاه روی شبکه با IP و پورت (پیش‌فرض 8888)
-    ///   • com → دستگاه با کابل USB روی پورت سریال مجازی
-    ///
-    /// اگر pec.pcpos.dll موجود باشد از آن استفاده می‌شود؛ در غیر این صورت در حالت
-    /// شبکه ارتباط مستقیم TCP با دستگاه برقرار می‌گردد.
+    /// همهٔ پرداخت‌ها از اینجا می‌گذرند تا قواعد ایمنی یک‌جا اعمال شوند:
+    ///   • هر تراکنش یک شناسهٔ یکتا از کیوسک دارد؛ درخواست تکراری با همان شناسه دوباره پرداخت
+    ///     نمی‌کند و همان نتیجهٔ قبلی را برمی‌گرداند.
+    ///   • هم‌زمان فقط یک پرداخت روی دستگاه انجام می‌شود.
+    ///   • مبلغ در بازهٔ مجاز بررسی می‌شود.
+    ///   • هیچ مسیر «تلاش دوباره با روش دیگر» بعد از ارسال درخواست وجود ندارد (کسر دوبارهٔ وجه).
     /// </summary>
-    internal class PosDevice
+    internal class PosDevice : IDisposable
     {
-        private readonly Config _config;
-        private object _pos;          // نمونهٔ Intek.PcPosLibrary.PcPos (کتابخانهٔ قدیمی)
-        private PosNative _native;    // کتابخانهٔ رسمی PosInterface.dll
-        private volatile bool _cancelRequested;
+        private static readonly Regex IdPattern = new Regex("^[A-Za-z0-9-]{8,64}$");
 
-        public PosDevice(Config config)
+        private readonly Config _config;
+        private readonly TransactionJournal _journal;
+        private readonly PcPosLanClient _lan;
+        private readonly PosNative _native;
+        private readonly object _payLock = new object();
+        private volatile PosTransaction _current;
+        private volatile bool _cancelRequested;
+        private volatile bool _retired;
+
+        private readonly object _probeLock = new object();
+        private DateTime _probeAt = DateTime.MinValue;
+        private bool _probeOk;
+
+        public PosDevice(Config config, TransactionJournal journal)
         {
             _config = config;
+            _journal = journal;
             if (config.Simulate) return;
-            if (config.UseSdk)
+            if (config.EffectiveProtocol == "native") _lan = new PcPosLanClient(config.ToLanOptions(), journal);
+            else
             {
-                _native = new PosNative(config);
+                _native = new PosNative(config, journal);
                 _native.Start();
             }
-            TryInit();
         }
 
-        public bool LibraryLoaded { get { return _pos != null || (_native != null && _native.Ready); } }
-
-        /// <summary>راه‌اندازی دوبارهٔ کتابخانهٔ رسمی (بعد از تغییر IP یا پورت)</summary>
-        public bool RestartSdk()
+        public bool Busy
         {
-            if (_native == null) _native = new PosNative(_config);
-            return _native.Start();
+            get { return _current != null; }
+        }
+
+        public bool LibraryLoaded
+        {
+            get { return _native != null && _native.Ready; }
         }
 
         public void Dispose()
         {
+            if (_lan != null) _lan.Dispose();
             if (_native != null) _native.Stop();
         }
 
-
-        private void TryInit()
+        /// <summary>
+        /// کنار گذاشتن این نمونه برای اعمال تنظیمات تازه؛ اگر پرداختی در جریان باشد false می‌دهد
+        /// تا تراکنش نیمه‌کاره با بسته شدن اتصال‌ها خراب نشود.
+        /// </summary>
+        public bool Retire()
         {
+            if (!Monitor.TryEnter(_payLock)) return false;
             try
             {
-                var asm = Assembly.Load("pec.pcpos");
-                var type = asm.GetType("Intek.PcPosLibrary.PcPos") ?? asm.GetType("Intek.PcPosLibrary.PCPOS");
-                if (type == null) { Console.WriteLine("PcPos type not found in pec.pcpos.dll"); return; }
-
-                _pos = Activator.CreateInstance(type);
-                SetIfExists("TerminalID", _config.TerminalId);
-                SetIfExists("MerchantID", _config.MerchantId);
-                SetIfExists("SignCode", _config.SignCode);
-
-                if (_config.IsLan)
-                {
-                    // نام پراپرتی‌ها بین نسخه‌های کتابخانه فرق دارد؛ همه را امتحان می‌کنیم.
-                    SetFirstExisting(new[] { "IPAddress", "IP", "DeviceIP", "Host" }, _config.DeviceIp);
-                    SetFirstExisting(new[] { "Port", "IPPort", "DevicePort", "TcpPort" }, _config.DevicePort);
-                    SetFirstExisting(new[] { "ConnectionType", "ConnectionMode", "CommunicationType" }, "LAN");
-                }
-                else
-                {
-                    SetIfExists("PortName", _config.ComPort);
-                }
-
-                Console.WriteLine("pec.pcpos.dll loaded. mode=" + _config.ConnectionMode);
+                _retired = true;
+                Dispose();
+                return true;
             }
-            catch (Exception ex)
+            finally
             {
-                Console.WriteLine("pec.pcpos.dll not loaded: " + ex.Message);
-                _pos = null;
+                Monitor.Exit(_payLock);
             }
         }
 
-        private void SetIfExists(string prop, object value)
+        /* ---------------------------- پرداخت ---------------------------- */
+
+        public sealed class PayOutcome
         {
-            if (_pos == null || value == null) return;
-            var p = _pos.GetType().GetProperty(prop);
-            if (p == null || !p.CanWrite) return;
-            try { p.SetValue(_pos, Convert.ChangeType(value, p.PropertyType), null); } catch { /* ignore */ }
+            public int Status;
+            public Dictionary<string, object> Body;
         }
 
-        private void SetFirstExisting(string[] names, object value)
+        public PayOutcome Pay(string transactionId, long amountRial, string invoiceNumber)
         {
-            if (_pos == null) return;
-            foreach (var n in names)
+            if (string.IsNullOrEmpty(transactionId)) transactionId = Guid.NewGuid().ToString();
+            if (!IdPattern.IsMatch(transactionId)) return Error(400, "BAD_REQUEST", "شناسهٔ تراکنش نامعتبر است");
+            if (amountRial <= 0) return Error(400, "BAD_REQUEST", "مبلغ نامعتبر است");
+            if (amountRial > _config.MaxAmountRial)
+                return Error(400, "AMOUNT_LIMIT", "مبلغ بیش از سقف مجاز یک تراکنش (" + _config.MaxAmountRial + " ریال) است");
+
+            var replay = Replay(transactionId, amountRial);
+            if (replay != null) return replay;
+
+            if (!Monitor.TryEnter(_payLock))
+                return Error(409, "DEV_BUSY", "کارت‌خوان مشغول تراکنش دیگری است؛ چند لحظه بعد دوباره تلاش کنید");
+            try
             {
-                var p = _pos.GetType().GetProperty(n);
-                if (p != null && p.CanWrite) { SetIfExists(n, value); return; }
+                if (_retired) return Error(503, "RECONFIGURING", "تنظیمات کارت‌خوان در حال اعمال است؛ دوباره تلاش کنید");
+
+                // بررسی دوباره پس از گرفتن قفل (درخواست هم‌زمان با همان شناسه)
+                replay = Replay(transactionId, amountRial);
+                if (replay != null) return replay;
+
+                var tx = new PosTransaction
+                {
+                    Id = transactionId,
+                    MessageId = _journal.NextMessageId(),
+                    InvoiceNumber = (invoiceNumber ?? "").Trim(),
+                    PosInvoice = PcPosProtocol.ToPosInvoice(invoiceNumber, _config.InvoiceMaxDigits),
+                    AmountRial = amountRial,
+                    Status = "pending",
+                    CreatedAt = PosTransaction.Now()
+                };
+                _journal.Save(tx);
+                _cancelRequested = false;
+                _current = tx;
+                PosLog.Info("pay:start", "فاکتور " + tx.InvoiceNumber + " — مبلغ " + amountRial + " ریال — شناسه " + tx.Id);
+
+                PosTransaction result;
+                if (_config.Simulate) result = Simulate(tx);
+                else if (_lan != null) result = _lan.Pay(tx);
+                else result = _native.Pay(tx, () => _cancelRequested);
+
+                return new PayOutcome { Status = 200, Body = result.ToResult() };
+            }
+            finally
+            {
+                _current = null;
+                _cancelRequested = false;
+                Monitor.Exit(_payLock);
             }
         }
 
-        private object GetIfExists(string prop)
+        private PayOutcome Replay(string transactionId, long amountRial)
         {
-            if (_pos == null) return null;
-            var p = _pos.GetType().GetProperty(prop);
-            return p == null ? null : p.GetValue(_pos, null);
+            var existing = _journal.Get(transactionId);
+            if (existing == null) return null;
+            if (existing.AmountRial != amountRial)
+                return Error(409, "ID_REUSED", "این شناسهٔ تراکنش قبلاً با مبلغ دیگری استفاده شده است");
+
+            var body = existing.ToResult();
+            body["replayed"] = true;
+            if (!existing.IsFinal)
+            {
+                body["code"] = "IN_PROGRESS";
+                return new PayOutcome { Status = 409, Body = body };
+            }
+            PosLog.Warn("pay:replay", "درخواست تکراری برای تراکنش " + transactionId + " — نتیجهٔ قبلی برگردانده شد");
+            return new PayOutcome { Status = 200, Body = body };
         }
+
+        private PosTransaction Simulate(PosTransaction tx)
+        {
+            tx.Via = "simulate";
+            tx.Status = "sent";
+            tx.SentAt = PosTransaction.Now();
+            _journal.Save(tx);
+            for (var i = 0; i < 10; i++)
+            {
+                Thread.Sleep(250);
+                if (_cancelRequested)
+                {
+                    tx.Status = "cancelled";
+                    tx.CancelRequested = true;
+                    tx.Message = "تراکنش لغو شد (شبیه‌سازی)";
+                    tx.CompletedAt = PosTransaction.Now();
+                    _journal.Save(tx);
+                    return tx;
+                }
+            }
+            PaymentRules.Apply(tx, new PosBuyResponse
+            {
+                ChecksumValid = true,
+                Type = "POSBUY",
+                Code = 0,
+                Amount = tx.AmountRial.ToString(),
+                Rrn = "SIM" + tx.MessageId.ToString("D9"),
+                Stan = (tx.MessageId % 1000000).ToString("D6"),
+                TerminalId = _config.TerminalId,
+                MerchantId = _config.MerchantId,
+                CardNumber = "6037990000001234",
+                MessageId = tx.MessageId.ToString()
+            }, _config.TerminalId, _config.RequireRrn, _journal);
+            if (tx.IsSuccess) tx.Message = "تراکنش موفق (شبیه‌سازی)";
+            _journal.Save(tx);
+            return tx;
+        }
+
+        public bool Cancel(string transactionId)
+        {
+            var cur = _current;
+            if (cur == null) return false;
+            if (!string.IsNullOrEmpty(transactionId) && transactionId != cur.Id) return false;
+            _cancelRequested = true;
+            if (_lan != null) _lan.Cancel(cur.Id);
+            PosLog.Warn("cancel", "درخواست لغو تراکنش " + cur.Id);
+            return true;
+        }
+
+        public Dictionary<string, object> Status(string transactionId)
+        {
+            var tx = _journal.Get(transactionId);
+            return tx == null ? null : tx.ToResult();
+        }
+
+        public List<Dictionary<string, object>> Transactions(int limit)
+        {
+            var list = new List<Dictionary<string, object>>();
+            foreach (var t in _journal.Recent(limit)) list.Add(t.ToResult());
+            return list;
+        }
+
+        public bool MarkReviewed(string transactionId, string note)
+        {
+            var tx = _journal.Get(transactionId);
+            if (tx == null) return false;
+            tx.Reviewed = true;
+            tx.NeedsReview = false;
+            if (!string.IsNullOrEmpty(note)) tx.Note = (string.IsNullOrEmpty(tx.Note) ? "" : tx.Note + " | ") + "بررسی: " + note;
+            _journal.Save(tx);
+            PosLog.Info("review", "تراکنش " + transactionId + " بررسی شد");
+            return true;
+        }
+
+        public int NeedsReviewCount()
+        {
+            var n = 0;
+            foreach (var t in _journal.Recent(500)) if (t.NeedsReview && !t.Reviewed) n++;
+            return n;
+        }
+
+        /* ---------------------------- وضعیت ---------------------------- */
 
         /// <summary>بررسی در دسترس بودن خود دستگاه (نه فقط سرویس پل)</summary>
         public Dictionary<string, object> DeviceStatus()
@@ -116,17 +246,22 @@ namespace PosBridge
             var info = new Dictionary<string, object>
             {
                 { "mode", _config.IsLan ? "lan" : "com" },
+                { "protocol", _config.Simulate ? "simulate" : _config.EffectiveProtocol },
+                { "responseMode", _config.ResponseMode },
+                { "callbackPort", _lan != null ? _lan.CallbackPort : _config.DevicePort },
+                { "callbackListening", _lan != null && _lan.ListenerReady },
+                { "callbackError", _lan != null ? _lan.ListenerError : null },
                 { "terminalId", _config.TerminalId },
                 { "merchantId", _config.MerchantId },
                 { "serialNumber", _config.SerialNumber },
-                { "libraryLoaded", LibraryLoaded },
-                { "sdkReady", _native != null && _native.Ready },
-                { "posListenPort", _config.PosListenPort },
+                { "libraryLoaded", _lan != null || LibraryLoaded },
+                { "busy", Busy },
+                { "needsReview", NeedsReviewCount() },
+                { "tokenRequired", !string.IsNullOrEmpty(_config.AccessToken) },
                 { "printerName", string.IsNullOrEmpty(_config.PrinterName) ? Printer.DefaultPrinter() : _config.PrinterName },
                 { "printEnabled", _config.PrintEnabled },
                 { "simulate", _config.Simulate }
             };
-
 
             if (_config.Simulate)
             {
@@ -139,22 +274,44 @@ namespace PosBridge
             {
                 info["deviceIp"] = _config.DeviceIp;
                 info["devicePort"] = _config.DevicePort;
-                var ok = CanReach(_config.DeviceIp, _config.DevicePort, 1500);
-                info["connected"] = ok;
-                info["message"] = ok
-                    ? "دستگاه روی شبکه پاسخ می‌دهد"
-                    : "دستگاه در آدرس " + _config.DeviceIp + ":" + _config.DevicePort + " پاسخ نمی‌دهد";
+                if (Busy)
+                {
+                    // وسط تراکنش هیچ اتصال اضافه‌ای به دستگاه زده نمی‌شود
+                    info["connected"] = true;
+                    info["message"] = "تراکنش در جریان است";
+                    return info;
+                }
+                var ok = ProbeCached();
+                var listenerOk = _lan == null || !_lan.UsesCallback || _lan.ListenerReady;
+                info["connected"] = ok && listenerOk;
+                info["message"] = !ok
+                    ? "دستگاه در آدرس " + _config.DeviceIp + ":" + _config.DevicePort + " پاسخ نمی‌دهد"
+                    : listenerOk
+                        ? "دستگاه روی شبکه پاسخ می‌دهد"
+                        : "پورت " + _lan.CallbackPort + " برای دریافت پاسخ دستگاه باز نشد: " + _lan.ListenerError;
             }
             else
             {
                 info["comPort"] = _config.ComPort;
                 info["connected"] = LibraryLoaded;
                 info["message"] = LibraryLoaded
-                    ? "کتابخانهٔ پارسیان روی " + _config.ComPort + " آماده است"
-                    : "pec.pcpos.dll بارگذاری نشد";
+                    ? "کتابخانهٔ رسمی روی " + _config.ComPort + " آماده است"
+                    : "کتابخانهٔ رسمی کارت‌خوان راه‌اندازی نشد";
             }
 
             return info;
+        }
+
+        /// <summary>نتیجهٔ بررسی دسترسی را چند ثانیه نگه می‌داریم تا دستگاه مدام اتصال تازه نگیرد</summary>
+        private bool ProbeCached()
+        {
+            lock (_probeLock)
+            {
+                if ((DateTime.UtcNow - _probeAt).TotalSeconds < 5) return _probeOk;
+                _probeOk = CanReach(_config.DeviceIp, _config.DevicePort, 1500);
+                _probeAt = DateTime.UtcNow;
+                return _probeOk;
+            }
         }
 
         public static bool CanReach(string ip, int port, int timeoutMs)
@@ -174,31 +331,37 @@ namespace PosBridge
         }
 
         /// <summary>
-        /// تست ارتباط با دستگاه: اتصال TCP + یک بستهٔ handshake و اندازه‌گیری زمان پاسخ.
-        /// مراحل خطا از هم تفکیک می‌شوند: network / tcp / handshake
+        /// تست ارتباط با دستگاه: فقط اتصال TCP و اندازه‌گیری زمان؛ هیچ داده‌ای به دستگاه فرستاده نمی‌شود
+        /// (پروتکل PC-POS فرمان «وضعیت» ندارد و فرستادن دادهٔ نامعتبر دستگاه را گیج می‌کند).
         /// </summary>
         public Dictionary<string, object> Ping(string ipOverride, int portOverride, int timeoutMs)
         {
             var ip = string.IsNullOrEmpty(ipOverride) ? _config.DeviceIp : ipOverride;
             var port = portOverride > 0 ? portOverride : _config.DevicePort;
-            var sw = new System.Diagnostics.Stopwatch();
 
             var res = new Dictionary<string, object>
             {
                 { "deviceIp", ip },
                 { "devicePort", port },
-                { "serialNumber", _config.SerialNumber }
+                { "serialNumber", _config.SerialNumber },
+                { "reportedSerial", _config.SerialNumber },
+                { "reportedModel", _config.Model },
+                { "reportedFirmware", _config.Firmware },
+                { "identityVerified", false }
             };
 
             if (_config.Simulate)
             {
                 Thread.Sleep(120);
                 res["ok"] = true; res["stage"] = "handshake"; res["latencyMs"] = 120; res["code"] = "OK";
-                res["reportedSerial"] = _config.SerialNumber;
-                res["reportedModel"] = _config.Model;
-                res["reportedFirmware"] = _config.Firmware;
                 res["message"] = "حالت شبیه‌سازی — پاسخ ساختگی";
-                PosLog.Info("ping", "شبیه‌سازی: پاسخ ۱۲۰ms");
+                return res;
+            }
+
+            if (Busy)
+            {
+                res["ok"] = true; res["stage"] = "tcp"; res["latencyMs"] = 0; res["code"] = "OK";
+                res["message"] = "کارت‌خوان مشغول تراکنش است";
                 return res;
             }
 
@@ -210,12 +373,18 @@ namespace PosBridge
                 res["code"] = LibraryLoaded ? "OK" : "CFG_INVALID";
                 res["message"] = LibraryLoaded
                     ? "اتصال USB روی " + _config.ComPort + " آماده است"
-                    : "pec.pcpos.dll بارگذاری نشد (اتصال USB)";
-                PosLog.Info("ping", Convert.ToString(res["message"]));
+                    : "کتابخانهٔ رسمی کارت‌خوان راه‌اندازی نشد (اتصال USB)";
                 return res;
             }
 
-            sw.Start();
+            if (!Config.IsValidIp(ip))
+            {
+                res["ok"] = false; res["stage"] = "network"; res["latencyMs"] = 0; res["code"] = "CFG_INVALID";
+                res["message"] = "IP نامعتبر است: " + ip;
+                return res;
+            }
+
+            var sw = System.Diagnostics.Stopwatch.StartNew();
             try
             {
                 using (var client = new TcpClient())
@@ -223,62 +392,20 @@ namespace PosBridge
                     var ar = client.BeginConnect(ip, port, null, null);
                     if (!ar.AsyncWaitHandle.WaitOne(timeoutMs, false) || !client.Connected)
                     {
-                        sw.Stop();
                         res["ok"] = false; res["stage"] = "tcp"; res["latencyMs"] = sw.ElapsedMilliseconds; res["code"] = "NET_REFUSED";
-                        res["message"] = "پورت " + port + " روی " + ip + " باز نشد (دستگاه خاموش است یا IP اشتباه است)";
+                        res["message"] = "پورت " + port + " روی " + ip + " باز نشد (دستگاه خاموش است، IP اشتباه است یا PC-POS روی دستگاه فعال نیست)";
                         PosLog.Error("ping", Convert.ToString(res["message"]));
                         return res;
                     }
                     client.EndConnect(ar);
-                    var tcpMs = sw.ElapsedMilliseconds;
-
-                    client.ReceiveTimeout = timeoutMs;
-                    var stream = client.GetStream();
-                    var probe = Encoding.UTF8.GetBytes(string.Format("\u0002{0}|{1}|STATUS\u0003",
-                        _config.MerchantId, _config.TerminalId));
-                    stream.Write(probe, 0, probe.Length);
-                    stream.Flush();
-
-                    var buffer = new byte[256];
-                    var deadline = DateTime.UtcNow.AddMilliseconds(timeoutMs);
-                    var got = 0;
-                    while (DateTime.UtcNow < deadline)
-                    {
-                        if (stream.DataAvailable) { got = stream.Read(buffer, 0, buffer.Length); break; }
-                        Thread.Sleep(50);
-                    }
-                    sw.Stop();
-
-                    res["latencyMs"] = sw.ElapsedMilliseconds;
-                    if (got > 0)
-                    {
-                        var reply = Encoding.UTF8.GetString(buffer, 0, got);
-                        var reported = ExtractSerial(reply);
-                        res["ok"] = true; res["stage"] = "handshake"; res["code"] = "OK";
-                        res["reportedSerial"] = string.IsNullOrEmpty(reported) ? _config.SerialNumber : reported;
-                        var rModel = ExtractTag(reply, "MODEL");
-                        var rFw = ExtractTag(reply, "FW");
-                        res["reportedModel"] = string.IsNullOrEmpty(rModel) ? _config.Model : rModel;
-                        res["reportedFirmware"] = string.IsNullOrEmpty(rFw) ? _config.Firmware : rFw;
-                        res["message"] = "دستگاه پاسخ داد (" + sw.ElapsedMilliseconds + "ms)";
-                        PosLog.Info("ping", Convert.ToString(res["message"]));
-                    }
-                    else
-                    {
-                        // پورت باز است ولی پاسخی نیامد — معمولاً یعنی دستگاه در حالت آماده‌باش است
-                        res["ok"] = true; res["stage"] = "tcp"; res["code"] = "OK";
-                        res["reportedSerial"] = _config.SerialNumber;
-                        res["reportedModel"] = _config.Model;
-                        res["reportedFirmware"] = _config.Firmware;
-                        res["message"] = "پورت باز است ولی پاسخ handshake نیامد (" + tcpMs + "ms) — معمولاً دستگاه آماده است";
-                        PosLog.Warn("ping", Convert.ToString(res["message"]));
-                    }
-                    return res;
                 }
+                res["ok"] = true; res["stage"] = "tcp"; res["latencyMs"] = sw.ElapsedMilliseconds; res["code"] = "OK";
+                res["message"] = "پورت PC-POS دستگاه باز است (" + sw.ElapsedMilliseconds + "ms)";
+                PosLog.Info("ping", Convert.ToString(res["message"]));
+                return res;
             }
             catch (Exception ex)
             {
-                sw.Stop();
                 res["ok"] = false; res["stage"] = "network"; res["latencyMs"] = sw.ElapsedMilliseconds;
                 res["code"] = ClassifyNetworkError(ex);
                 res["message"] = "خطای شبکه: " + ex.Message;
@@ -287,42 +414,23 @@ namespace PosBridge
             }
         }
 
-
-        /// <summary>بیرون کشیدن مقدار یک برچسب (مثل MODEL=... یا FW:...) از پاسخ خام دستگاه</summary>
-        public static string ExtractTag(string reply, string tag)
-        {
-            if (string.IsNullOrEmpty(reply) || string.IsNullOrEmpty(tag)) return "";
-            var m = System.Text.RegularExpressions.Regex.Match(
-                reply, tag + @"\s*[:=]\s*([A-Za-z0-9_.\- ]{2,40})",
-                System.Text.RegularExpressions.RegexOptions.IgnoreCase);
-            return m.Success ? m.Groups[1].Value.Trim() : "";
-        }
-
-        /// <summary>بیرون کشیدن شمارهٔ سریال از پاسخ خام دستگاه (اولین عدد ۸ رقم به بالا)</summary>
-        public static string ExtractSerial(string reply)
-        {
-            if (string.IsNullOrEmpty(reply)) return "";
-            var m = System.Text.RegularExpressions.Regex.Match(reply, "[0-9]{8,}");
-            return m.Success ? m.Value : "";
-        }
-
         /// <summary>مقایسهٔ سریال‌ها با نادیده گرفتن فاصله و صفرِ ابتدایی</summary>
         public static bool SerialMatches(string reported, string expected)
         {
             if (string.IsNullOrEmpty(reported) || string.IsNullOrEmpty(expected)) return false;
-            Func<string, string> norm = v =>
-                System.Text.RegularExpressions.Regex.Replace(v, "[^0-9A-Za-z]", "").TrimStart('0').ToUpperInvariant();
+            Func<string, string> norm = v => Regex.Replace(v, "[^0-9A-Za-z]", "").TrimStart('0').ToUpperInvariant();
             return norm(reported) == norm(expected);
         }
 
         /// <summary>
-        /// اسکن یک یا چند زیرشبکه برای پیدا کردن کارت‌خوان. برای هر کاندید یک
-        /// handshake کوتاه هم انجام می‌شود تا سریال دستگاه تطبیق داده شود.
+        /// اسکن یک یا چند زیرشبکه برای پیدا کردن دستگاه‌هایی که پورت PC-POS آن‌ها باز است.
+        /// دستگاه سریال خود را اعلام نمی‌کند، پس serialMatch فقط وقتی true است که IP همان IP ثبت‌شده باشد.
         /// </summary>
         public List<Dictionary<string, object>> DiscoverDetailed(
             List<string> subnetPrefixes, int port, int timeoutMs, string expectedSerial)
         {
             var found = new List<Dictionary<string, object>>();
+            if (Busy) return found;
             var total = subnetPrefixes.Count * 254;
             if (total == 0) return found;
             var latch = new CountdownEvent(total);
@@ -339,21 +447,16 @@ namespace PosBridge
                         {
                             var sw = System.Diagnostics.Stopwatch.StartNew();
                             if (!CanReach(ip, port, timeoutMs)) return;
-                            sw.Stop();
-
-                            var probe = Ping(ip, port, 1200);
-                            var serial = probe.ContainsKey("reportedSerial")
-                                ? Convert.ToString(probe["reportedSerial"]) : "";
+                            var known = ip == _config.DeviceIp;
                             var entry = new Dictionary<string, object>
                             {
                                 { "ip", ip },
                                 { "latencyMs", sw.ElapsedMilliseconds },
-                                { "serialNumber", serial },
-                                { "serialMatch", SerialMatches(serial, expectedSerial) }
+                                { "serialNumber", known ? _config.SerialNumber : "" },
+                                { "serialMatch", known }
                             };
                             lock (found) found.Add(entry);
-                            PosLog.Info("discover", "پاسخ از " + ip + (SerialMatches(serial, expectedSerial)
-                                ? " — سریال تأیید شد" : " — سریال: " + (string.IsNullOrEmpty(serial) ? "نامشخص" : serial)));
+                            PosLog.Info("discover", "پورت " + port + " روی " + ip + " باز است" + (known ? " (دستگاه ثبت‌شده)" : ""));
                         }
                         catch { /* ignore */ }
                         finally { latch.Signal(); }
@@ -372,170 +475,6 @@ namespace PosBridge
             return found;
         }
 
-        /// <summary>اسکن زیرشبکهٔ محلی برای پیدا کردن کارت‌خوان (نسخهٔ ساده)</summary>
-        public static List<string> Discover(string subnetPrefix, int port, int timeoutMs)
-        {
-            var found = new List<string>();
-            var latch = new CountdownEvent(254);
-            for (var i = 1; i <= 254; i++)
-            {
-                var ip = subnetPrefix + "." + i;
-                ThreadPool.QueueUserWorkItem(_ =>
-                {
-                    try
-                    {
-                        if (CanReach(ip, port, timeoutMs))
-                            lock (found) found.Add(ip);
-                    }
-                    finally { latch.Signal(); }
-                });
-            }
-            latch.Wait(timeoutMs + 4000);
-            found.Sort();
-            return found;
-        }
-
-        public void Cancel()
-        {
-            _cancelRequested = true;
-            PosLog.Warn("cancel", "درخواست لغو تراکنش");
-            if (_pos == null) return;
-            var m = _pos.GetType().GetMethod("Cancel") ?? _pos.GetType().GetMethod("CancelTransaction");
-            if (m != null) { try { m.Invoke(_pos, null); } catch { /* ignore */ } }
-        }
-
-        public Dictionary<string, object> Pay(long amountRial, string invoiceNumber)
-        {
-            _cancelRequested = false;
-            PosLog.Info("pay:start", "فاکتور " + invoiceNumber + " — مبلغ " + amountRial + " ریال");
-
-            if (_config.Simulate)
-            {
-                Thread.Sleep(2500);
-                if (_cancelRequested) return Result(false, "00X", "تراکنش لغو شد", null, null);
-                return Result(true, "00", "تراکنش موفق (شبیه‌سازی)", "SIM" + DateTime.Now.ToString("HHmmss"), "6221-****-****-1234");
-            }
-
-            // اولویت با کتابخانهٔ رسمی PosInterface است (پاسخ واقعی دستگاه با RRN و شماره کارت)
-            if (_config.UseSdk && _native != null)
-            {
-                var sdkResult = _native.Pay(amountRial, invoiceNumber, _config.TimeoutSeconds);
-                if (Convert.ToBoolean(sdkResult["success"]) || _pos != null || !_config.IsLan) return sdkResult;
-                PosLog.Warn("pay", "کتابخانهٔ رسمی پاسخ نداد؛ تلاش با پروتکل مستقیم TCP");
-                return PayOverTcp(amountRial, invoiceNumber);
-            }
-
-            if (_pos == null)
-            {
-                // بدون DLL: در حالت شبکه مستقیم با دستگاه صحبت می‌کنیم
-                if (_config.IsLan) return PayOverTcp(amountRial, invoiceNumber);
-                return Result(false, null, "کتابخانهٔ کارت‌خوان بارگذاری نشده و حالت اتصال USB است", null, null);
-            }
-
-
-            try
-            {
-                SetIfExists("Amount", amountRial);
-                SetIfExists("InvoiceNumber", invoiceNumber);
-                SetIfExists("TerminalID", _config.TerminalId);
-                SetIfExists("MerchantID", _config.MerchantId);
-
-                var payMethod = _pos.GetType().GetMethod("Purchase")
-                                ?? _pos.GetType().GetMethod("StartTransaction")
-                                ?? _pos.GetType().GetMethod("Sale");
-                if (payMethod == null) return Result(false, null, "متد پرداخت در DLL پیدا نشد", null, null);
-
-                var parameters = payMethod.GetParameters();
-                object raw = parameters.Length == 0
-                    ? payMethod.Invoke(_pos, null)
-                    : payMethod.Invoke(_pos, BuildArgs(parameters, amountRial, invoiceNumber));
-
-                var responseCode = Convert.ToString(GetIfExists("ResponseCode") ?? raw);
-                var refNumber = Convert.ToString(GetIfExists("RRN") ?? GetIfExists("RefNumber") ?? "");
-                var pan = Convert.ToString(GetIfExists("MaskedPan") ?? GetIfExists("CardNumber") ?? "");
-                var success = responseCode == "00" || responseCode == "0";
-
-                return Result(success, responseCode, success ? "تراکنش موفق" : "تراکنش ناموفق", refNumber, pan);
-            }
-            catch (Exception ex)
-            {
-                return Result(false, null, "خطای دستگاه: " + ex.Message, null, null);
-            }
-        }
-
-        /// <summary>
-        /// ارسال درخواست فروش به‌صورت مستقیم روی TCP (پروتکل متنی PC-POS پارسیان).
-        /// قالب: STX|MerchantId|TerminalId|Amount|InvoiceNumber|ETX
-        /// </summary>
-        private Dictionary<string, object> PayOverTcp(long amountRial, string invoiceNumber)
-        {
-            try
-            {
-                using (var client = new TcpClient())
-                {
-                    var ar = client.BeginConnect(_config.DeviceIp, _config.DevicePort, null, null);
-                    if (!ar.AsyncWaitHandle.WaitOne(5000, false) || !client.Connected)
-                        return Result(false, null, "اتصال به دستگاه " + _config.DeviceIp + " برقرار نشد", null, null);
-                    client.EndConnect(ar);
-
-                    client.ReceiveTimeout = _config.TimeoutSeconds * 1000;
-                    var stream = client.GetStream();
-
-                    var payload = string.Format("\u0002{0}|{1}|{2}|{3}|PURCHASE\u0003",
-                        _config.MerchantId, _config.TerminalId, amountRial, invoiceNumber);
-                    var bytes = Encoding.UTF8.GetBytes(payload);
-                    stream.Write(bytes, 0, bytes.Length);
-                    stream.Flush();
-
-                    var buffer = new byte[1024];
-                    var sb = new StringBuilder();
-                    var deadline = DateTime.UtcNow.AddSeconds(_config.TimeoutSeconds);
-                    while (DateTime.UtcNow < deadline)
-                    {
-                        if (_cancelRequested) return Result(false, "00X", "تراکنش لغو شد", null, null);
-                        if (!stream.DataAvailable) { Thread.Sleep(200); continue; }
-                        var read = stream.Read(buffer, 0, buffer.Length);
-                        if (read <= 0) break;
-                        sb.Append(Encoding.UTF8.GetString(buffer, 0, read));
-                        if (sb.ToString().Contains("\u0003")) break;
-                    }
-
-                    var response = sb.ToString().Trim('\u0002', '\u0003', '\r', '\n');
-                    if (response.Length == 0)
-                        return Result(false, null, "پاسخی از دستگاه دریافت نشد (پایان زمان انتظار)", null, null);
-
-                    var parts = response.Split('|');
-                    var code = parts.Length > 0 ? parts[0].Trim() : "";
-                    var rrn = parts.Length > 1 ? parts[1].Trim() : "";
-                    var pan = parts.Length > 2 ? parts[2].Trim() : "";
-                    var success = code == "00" || code == "0";
-
-                    return Result(success, code, success ? "تراکنش موفق" : "تراکنش ناموفق (کد " + code + ")", rrn, pan);
-                }
-            }
-            catch (Exception ex)
-            {
-                return Result(false, null, "خطای ارتباط شبکه با دستگاه: " + ex.Message, null, null);
-            }
-        }
-
-        private object[] BuildArgs(ParameterInfo[] parameters, long amountRial, string invoiceNumber)
-        {
-            var args = new object[parameters.Length];
-            for (var i = 0; i < parameters.Length; i++)
-            {
-                var name = parameters[i].Name.ToLowerInvariant();
-                if (name.Contains("amount")) args[i] = Convert.ChangeType(amountRial, parameters[i].ParameterType);
-                else if (name.Contains("invoice")) args[i] = Convert.ChangeType(invoiceNumber, parameters[i].ParameterType);
-                else if (name.Contains("terminal")) args[i] = Convert.ChangeType(_config.TerminalId, parameters[i].ParameterType);
-                else if (name.Contains("merchant")) args[i] = Convert.ChangeType(_config.MerchantId, parameters[i].ParameterType);
-                else args[i] = parameters[i].ParameterType.IsValueType
-                    ? Activator.CreateInstance(parameters[i].ParameterType)
-                    : null;
-            }
-            return args;
-        }
-
         /// <summary>تبدیل خطای شبکه به کد کوتاه برای نمایش در پنل</summary>
         private static string ClassifyNetworkError(Exception ex)
         {
@@ -547,19 +486,16 @@ namespace PosBridge
             return "UNKNOWN";
         }
 
-        private Dictionary<string, object> Result(bool success, string code, string message, string refNumber, string pan)
+        private static PayOutcome Error(int status, string code, string message)
         {
-            if (success) PosLog.Info("pay:result", message + (string.IsNullOrEmpty(refNumber) ? "" : " — پیگیری " + refNumber));
-            else PosLog.Error("pay:result", message);
-            return new Dictionary<string, object>
+            PosLog.Error("pay", message);
+            return new PayOutcome
             {
-                { "success", success },
-                { "responseCode", code },
-                { "message", message },
-                { "refNumber", refNumber },
-                { "maskedPan", pan },
-                { "terminalId", _config.TerminalId },
-                { "merchantId", _config.MerchantId }
+                Status = status,
+                Body = new Dictionary<string, object>
+                {
+                    { "success", false }, { "final", true }, { "code", code }, { "message", message }
+                }
             };
         }
     }

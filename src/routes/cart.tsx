@@ -1,20 +1,35 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { QRCodeSVG } from "qrcode.react";
 import { useCartStore } from "@/store/cartStore";
-import { Trash2, ShoppingCart, CreditCard, Banknote, Ticket } from "lucide-react";
+import { Trash2, ShoppingCart, CreditCard, Banknote, Ticket, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PageShell } from "@/components/PageShell";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Toaster } from "@/components/ui/sonner";
 import { formatToman } from "@/lib/money";
-import { posCancel, posPay, posPrintTicket, type PosResult } from "@/lib/pos";
+import {
+  newTransactionId,
+  posCancel,
+  posPay,
+  posPrintTicket,
+  posTransactionStatus,
+  posWaitForResult,
+  type PosResult,
+} from "@/lib/pos";
 import { agentPay, agentStatusLabel, getPayBackend } from "@/lib/pos-agent";
 import { PosLiveBadge, usePosLiveStatus } from "@/components/PosLiveStatus";
-import { saveInvoice, type InvoiceDb } from "@/lib/invoice";
+import {
+  flushInvoiceOutbox,
+  newInvoiceNumber,
+  saveInvoice,
+  savePaidInvoice,
+  type InvoiceDb,
+  type InvoiceLine,
+} from "@/lib/invoice";
+import { clearPendingPayment, loadPendingPayment, savePendingPayment } from "@/lib/pending-payment";
 import { buildTicketPayload, qrPngDataUrl, ticketQrValue } from "@/lib/receipt";
-
 
 export const Route = createFileRoute("/cart")({
   head: () => ({
@@ -30,14 +45,20 @@ export const Route = createFileRoute("/cart")({
 });
 
 const fmt = (n: number) => formatToman(n);
+const db = () => supabase as unknown as InvoiceDb;
 
-function genInvoiceNumber() {
-  const now = new Date();
-  const d = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, "0")}${String(now.getDate()).padStart(2, "0")}`;
-  const r = Math.floor(Math.random() * 10000)
-    .toString()
-    .padStart(4, "0");
-  return `INV-${d}-${r}`;
+/** بازیابی پرداخت نیمه‌کاره فقط یک بار در هر بار باز شدن برنامه */
+let recoveryStarted = false;
+/** پرداختی که بعد از این مدت بازیابی شود دیگر خودکار بلیط چاپ نمی‌کند (مشتری رفته است) */
+const RECOVERY_PRINT_WINDOW_MS = 10 * 60 * 1000;
+
+/** کد کوتاه تراکنش برای گفتن به متصدی */
+const shortCode = (id?: string) => (id ?? "").replace(/-/g, "").slice(0, 8).toUpperCase();
+
+interface PaymentNotice {
+  title: string;
+  body: string;
+  code?: string;
 }
 
 function CartPage() {
@@ -47,28 +68,33 @@ function CartPage() {
   const pos = usePosLiveStatus();
   const [paying, setPaying] = useState(false);
   const [posStatus, setPosStatus] = useState("");
+  const [payAmount, setPayAmount] = useState(0);
   const [abort, setAbort] = useState<AbortController | null>(null);
+  const [activeTx, setActiveTx] = useState<string | null>(null);
+  const [cancelling, setCancelling] = useState(false);
+  const [notice, setNotice] = useState<PaymentNotice | null>(null);
   const qrHolder = useRef<HTMLDivElement | null>(null);
   const [qrValue, setQrValue] = useState("");
+  // قفل هم‌زمان: لمس دوبارهٔ دکمه پیش از رندر بعدی نباید پرداخت دوم بسازد
+  const payingRef = useRef(false);
 
-  const persistInvoice = async (
-    invoice_number: string,
-    total: number,
-    pos?: PosResult,
-  ): Promise<boolean> => {
-    const res = await saveInvoice(supabase as unknown as InvoiceDb, {
-      invoiceNumber: invoice_number,
-      total,
-      method,
-      items,
-      pos,
-    });
-    if (!res.ok && res.message) toast.error(res.message);
-    return res.ok;
-  };
+  const toLines = (): InvoiceLine[] =>
+    items.map((i) => ({
+      name: i.name,
+      quantity: i.quantity,
+      unitPrice: i.unitPrice,
+      discountPercent: i.discountPercent,
+      totalPrice: i.totalPrice,
+    }));
 
   /** چاپ بلیط روی پرینتر حرارتی؛ اگر پرینتر نبود، فرایند متوقف نمی‌شود */
-  const printTicket = async (invoice_number: string, total: number, pos?: PosResult) => {
+  const printTicket = async (
+    invoice_number: string,
+    total: number,
+    payMethod: "cash" | "card",
+    lines: InvoiceLine[],
+    pos?: PosResult,
+  ) => {
     setPosStatus("در حال چاپ بلیط...");
     setQrValue(ticketQrValue(invoice_number));
     await new Promise((r) => setTimeout(r, 60));
@@ -77,8 +103,8 @@ function CartPage() {
     const payload = buildTicketPayload({
       invoiceNumber: invoice_number,
       totalToman: total,
-      paymentMethod: method,
-      items: items.map((i) => ({
+      paymentMethod: payMethod,
+      items: lines.map((i) => ({
         name: i.name,
         quantity: i.quantity,
         totalToman: i.totalPrice,
@@ -94,75 +120,201 @@ function CartPage() {
     else toast.success("بلیط چاپ شد");
   };
 
-  const finish = (invoice_number: string, total: number, pos?: PosResult) => {
+  const finish = (
+    invoice_number: string,
+    total: number,
+    payMethod: "cash" | "card",
+    pos?: PosResult,
+  ) => {
     clearCart();
     navigate({
       to: "/checkout/success",
       search: {
         invoice: invoice_number,
         total,
-        method,
+        method: payMethod,
         ref: pos?.refNumber,
         pan: pos?.maskedPan,
       },
     });
   };
 
-  const pay = async () => {
-    if (items.length === 0) return;
-    const invoice_number = genInvoiceNumber();
-    const total = getTotal();
-    setPaying(true);
-
-    if (method === "card") {
-      const useAgent = getPayBackend() === "agent";
-      setPosStatus("در حال ارسال مبلغ به دستگاه کارت‌خوان...");
-      const ctrl = new AbortController();
-      setAbort(ctrl);
-      const result = useAgent
-        ? await agentPay(
-            { amountToman: total, description: `فاکتور ${invoice_number}` },
-            { signal: ctrl.signal, onStatus: (s) => setPosStatus(agentStatusLabel(s)) },
-          )
-        : await posPay({ amountToman: total, invoiceNumber: invoice_number }, {
-            signal: ctrl.signal,
-          });
-      setAbort(null);
-      if (!result.success) {
-        toast.error(result.message ?? "پرداخت با کارت‌خوان ناموفق بود");
-        setPaying(false);
-        setPosStatus("");
-        return;
-      }
-      const ok = await persistInvoice(invoice_number, total, result);
-      if (!ok) {
-        setPaying(false);
-        setPosStatus("");
-        return;
-      }
-      await printTicket(invoice_number, total, result);
-      finish(invoice_number, total, result);
-      return;
-    }
-
-    const ok = await persistInvoice(invoice_number, total);
-    if (!ok) {
-      setPaying(false);
-      return;
-    }
-    await printTicket(invoice_number, total);
-    setTimeout(() => finish(invoice_number, total), 600);
+  /** پرداخت کارتی تأیید شد: ثبت فاکتور (یا صف ارسال دوباره)، چاپ بلیط و رفتن به رسید */
+  const completeCardSale = async (
+    invoice_number: string,
+    total: number,
+    result: PosResult,
+    lines: InvoiceLine[],
+  ) => {
+    setPosStatus("پرداخت تأیید شد — در حال ثبت فروش...");
+    const saved = await savePaidInvoice(db(), {
+      invoiceNumber: invoice_number,
+      total,
+      method: "card",
+      items: lines,
+      pos: result,
+    });
+    if (!saved.ok) toast.warning(saved.message ?? "ثبت فاکتور با تأخیر انجام می‌شود");
+    clearPendingPayment(result.transactionId);
+    await printTicket(invoice_number, total, "card", lines, result);
+    finish(invoice_number, total, "card", result);
   };
 
-
-  const cancelPos = async () => {
-    abort?.abort();
-    // در حالت PosAgent لغو از طریق خودِ agentPay و با سیگنال abort انجام می‌شود
-    if (getPayBackend() !== "agent") await posCancel();
-    setAbort(null);
+  /** پرداخت تأیید نشد؛ اگر وضعیت نامعلوم است پیام روشن با کد پیگیری نشان داده می‌شود */
+  const handleNotApproved = (result: PosResult) => {
+    if (result.final !== false) clearPendingPayment(result.transactionId);
     setPaying(false);
     setPosStatus("");
-    toast.info("تراکنش لغو شد");
+    setActiveTx(null);
+    setCancelling(false);
+    if (result.uncertain) {
+      setNotice({
+        title: "وضعیت پرداخت نامشخص است",
+        body: `${result.message ?? ""} اگر مبلغ از حساب شما کسر شده، رسید کارت‌خوان را به متصدی نشان دهید تا بلیط صادر یا وجه برگشت داده شود.`,
+        code: shortCode(result.transactionId),
+      });
+    } else if (result.status === "cancelled") {
+      toast.info(result.message ?? "تراکنش لغو شد");
+    } else {
+      toast.error(result.message ?? "پرداخت با کارت‌خوان ناموفق بود");
+    }
+  };
+
+  // ارسال فاکتورهای مانده در صف و بازیابی پرداختی که وسط کار قطع شده بود
+  useEffect(() => {
+    void flushInvoiceOutbox(db());
+    const pending = loadPendingPayment();
+    if (!pending || recoveryStarted || getPayBackend() !== "bridge") return;
+    recoveryStarted = true;
+    void (async () => {
+      // یک پرسش سریع؛ اگر سرویس پل پایین است صفحه را قفل نمی‌کنیم و دفعهٔ بعد دوباره می‌پرسیم
+      let first: PosResult | null;
+      try {
+        first = await posTransactionStatus(pending.transactionId, 3000);
+      } catch {
+        recoveryStarted = false;
+        return;
+      }
+      if (first === null) {
+        clearPendingPayment(pending.transactionId); // درخواست هرگز به کارت‌خوان نرسیده بود
+        return;
+      }
+      if (payingRef.current) return;
+      payingRef.current = true;
+      setMethod("card");
+      setPaying(true);
+      setPayAmount(pending.amountToman);
+      setActiveTx(first.final ? null : pending.transactionId);
+      setPosStatus("در حال بررسی نتیجهٔ پرداخت قبلی...");
+      try {
+        const r = first.final
+          ? first
+          : await posWaitForResult(pending.transactionId, { deadlineMs: 150_000 });
+        const recent =
+          Date.now() - new Date(pending.startedAt).getTime() < RECOVERY_PRINT_WINDOW_MS;
+        if (r.success && recent) {
+          await completeCardSale(pending.invoiceNumber, pending.amountToman, r, pending.items);
+        } else if (r.success) {
+          clearPendingPayment(pending.transactionId);
+          handleNotApproved({
+            ...r,
+            success: false,
+            uncertain: true,
+            message:
+              "پرداخت قبلی پس از مدتی طولانی تأیید شده است و در فهرست بررسی کارت‌خوان ثبت شد.",
+          });
+        } else {
+          handleNotApproved(r);
+        }
+      } finally {
+        payingRef.current = false;
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const pay = async () => {
+    if (items.length === 0 || payingRef.current) return;
+    payingRef.current = true;
+    try {
+      const invoice_number = newInvoiceNumber();
+      const total = getTotal();
+      const lines = toLines();
+      setNotice(null);
+      setPayAmount(total);
+      setPaying(true);
+
+      if (method === "card") {
+        if (getPayBackend() === "agent") {
+          setPosStatus("در حال ارسال مبلغ به دستگاه کارت‌خوان...");
+          const ctrl = new AbortController();
+          setAbort(ctrl);
+          const result = await agentPay(
+            { amountToman: total, description: `فاکتور ${invoice_number}` },
+            { signal: ctrl.signal, onStatus: (s) => setPosStatus(agentStatusLabel(s)) },
+          );
+          setAbort(null);
+          if (result.success) await completeCardSale(invoice_number, total, result, lines);
+          else handleNotApproved(result);
+          return;
+        }
+
+        const transactionId = newTransactionId();
+        // پیش از فرستادن مبلغ ذخیره می‌شود تا اگر صفحه بسته شد، نتیجه قابل بازیابی باشد
+        savePendingPayment({
+          transactionId,
+          invoiceNumber: invoice_number,
+          amountToman: total,
+          items: lines,
+          startedAt: new Date().toISOString(),
+        });
+        setActiveTx(transactionId);
+        setPosStatus("مبلغ به کارت‌خوان ارسال شد — لطفاً کارت را بکشید و رمز را وارد کنید");
+        const result = await posPay({
+          amountToman: total,
+          invoiceNumber: invoice_number,
+          transactionId,
+        });
+        setActiveTx(null);
+        setCancelling(false);
+        if (result.success) await completeCardSale(invoice_number, total, result, lines);
+        else handleNotApproved(result);
+        return;
+      }
+
+      const res = await saveInvoice(db(), {
+        invoiceNumber: invoice_number,
+        total,
+        method,
+        items: lines,
+      });
+      if (!res.ok) {
+        if (res.message) toast.error(res.message);
+        setPaying(false);
+        return;
+      }
+      await printTicket(invoice_number, total, "cash", lines);
+      setTimeout(() => finish(invoice_number, total, "cash"), 600);
+    } finally {
+      payingRef.current = false;
+    }
+  };
+
+  /**
+   * لغو: کارت‌خوان فرمان لغو ندارد؛ درخواست به سرویس داده می‌شود و تا رسیدن نتیجهٔ واقعی
+   * دستگاه صبر می‌کنیم. اگر مشتری همان لحظه پرداخت کرده باشد، فروش ثبت و بلیط چاپ می‌شود.
+   */
+  const cancelPos = async () => {
+    if (cancelling) return;
+    setCancelling(true);
+    setPosStatus(
+      "در حال لغو — اگر کارت‌خوان هنوز منتظر کارت است، دکمهٔ قرمز (لغو) را روی دستگاه بزنید",
+    );
+    if (getPayBackend() === "agent") {
+      abort?.abort();
+      return;
+    }
+    if (activeTx) await posCancel(activeTx);
   };
 
   if (paying) {
@@ -178,9 +330,7 @@ function CartPage() {
           </div>
           <div className="w-20 h-20 border-4 border-primary border-t-transparent rounded-full animate-spin" />
 
-          <h2 className="text-3xl font-black text-bronze-gradient">
-            در حال پردازش پرداخت...
-          </h2>
+          <h2 className="text-3xl font-black text-bronze-gradient">در حال پردازش پرداخت...</h2>
           <p className="text-bronze-light/70 text-lg font-medium">
             {method === "card"
               ? "لطفاً کارت خود را روی دستگاه بکشید"
@@ -190,13 +340,16 @@ function CartPage() {
             <>
               <PosLiveBadge state={pos.state} latencyMs={pos.latencyMs} />
               <p className="text-bronze-light/50 text-sm">{posStatus}</p>
-              <p className="text-2xl font-black text-bronze-gradient">{fmt(getTotal())}</p>
-              <button
-                onClick={cancelPos}
-                className="touch-btn h-12 px-8 rounded-full font-black glass border border-primary/30 text-bronze-light"
-              >
-                لغو تراکنش
-              </button>
+              <p className="text-2xl font-black text-bronze-gradient">{fmt(payAmount)}</p>
+              {(activeTx || abort) && (
+                <button
+                  onClick={() => void cancelPos()}
+                  disabled={cancelling}
+                  className="touch-btn h-12 px-8 rounded-full font-black glass border border-primary/30 text-bronze-light disabled:opacity-50"
+                >
+                  {cancelling ? "در حال لغو..." : "لغو تراکنش"}
+                </button>
+              )}
             </>
           )}
         </div>
@@ -204,17 +357,40 @@ function CartPage() {
     );
   }
 
-
   return (
     <PageShell title="سبد خرید" showCart={false}>
       <Toaster position="top-center" richColors />
       <section className="max-w-2xl mx-auto px-6 py-8">
+        {notice && (
+          <div
+            role="alert"
+            className="mb-6 rounded-2xl border border-amber-400/50 bg-amber-500/10 p-5 space-y-3 animate-fade-in-up"
+          >
+            <p className="flex items-center gap-2 text-amber-200 font-black text-lg">
+              <AlertTriangle className="w-6 h-6" />
+              {notice.title}
+            </p>
+            <p className="text-bronze-light/80 leading-7">{notice.body}</p>
+            {notice.code && (
+              <p className="text-bronze-light/70">
+                کد پیگیری کیوسک:{" "}
+                <span className="font-mono font-black text-white" dir="ltr">
+                  {notice.code}
+                </span>
+              </p>
+            )}
+            <button
+              onClick={() => setNotice(null)}
+              className="touch-btn h-11 px-6 rounded-full font-black glass border border-amber-400/40 text-amber-100"
+            >
+              متوجه شدم
+            </button>
+          </div>
+        )}
         {items.length === 0 ? (
           <div className="flex flex-col items-center justify-center text-center pt-16 glass-bronze rounded-3xl p-10 animate-fade-in-up">
             <ShoppingCart className="w-20 h-20 text-bronze-light/30 mb-5" />
-            <p className="text-2xl text-bronze-light/70 font-bold mb-6">
-              سبد خرید شما خالی است
-            </p>
+            <p className="text-2xl text-bronze-light/70 font-bold mb-6">سبد خرید شما خالی است</p>
             <Link
               to="/tickets"
               className="touch-btn inline-flex items-center gap-2 h-14 px-8 text-lg font-black rounded-full text-primary-foreground"
@@ -281,7 +457,9 @@ function CartPage() {
             </div>
 
             <div className="flex items-center justify-between gap-3">
-              <span className="text-bronze-light/60 text-sm font-bold">وضعیت لحظه‌ای کارت‌خوان</span>
+              <span className="text-bronze-light/60 text-sm font-bold">
+                وضعیت لحظه‌ای کارت‌خوان
+              </span>
               <PosLiveBadge state={pos.state} latencyMs={pos.latencyMs} />
             </div>
 
@@ -309,7 +487,8 @@ function CartPage() {
             </div>
 
             <Button
-              onClick={pay}
+              onClick={() => void pay()}
+              disabled={paying}
               className="touch-btn w-full h-16 text-xl font-black rounded-2xl text-primary-foreground"
               style={{
                 background: "linear-gradient(135deg, #f5c98a, #cd7f32 40%, #8b5a2b)",

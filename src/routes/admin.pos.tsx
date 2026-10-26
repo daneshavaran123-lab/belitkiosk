@@ -70,6 +70,7 @@ import {
   type PosStep,
 } from "@/lib/pos";
 import { PosLiveBadge, type PosLiveState } from "@/components/PosLiveStatus";
+import { PosProtocolCard, PosTransactionsCard } from "@/components/PosTransactionsCard";
 import {
   agentHealth,
   getAgentHttpUrl,
@@ -1566,6 +1567,10 @@ function AdminPos({ onLock }: { onLock: () => void }) {
         </div>
       </div>
 
+      <PosTransactionsCard />
+
+      <PosProtocolCard />
+
       <AgentCard />
 
       <PrinterCard />
@@ -1603,7 +1608,7 @@ function AgentCard() {
     const res = await agentHealth();
     setChecking(false);
     setHealth(res);
-    if (!res.ok) {
+    if (!res.ok && getPayBackend() === "agent") {
       toast.warning("سرویس پرداخت در دسترس نیست — مطمئن شوید PosAgent اجراست (net start PosAgentService)");
     }
   }, []);
@@ -1630,10 +1635,10 @@ function AgentCard() {
       <div className="flex items-center justify-between">
         <p className="font-black text-bronze-light flex items-center gap-2">
           <Zap className="w-5 h-5 text-primary" />
-          سرویس پرداخت PosAgent
+          روش پرداخت کارت‌خوان
         </p>
         <div className="flex items-center gap-2">
-          {health && (
+          {health && backend === "agent" && (
             <span
               className={`text-xs font-bold px-3 py-1 rounded-full border ${
                 health.ok
@@ -1654,8 +1659,8 @@ function AgentCard() {
       <div className="grid gap-3 md:grid-cols-2">
         {(
           [
-            { key: "agent" as const, title: "PosAgent (پیشنهادی)", sub: "سرویس ویندوزی Agent — HTTP 18765 / WebSocket 18766" },
-            { key: "bridge" as const, title: "پل pos-bridge", sub: "ارتباط مستقیم با DLL — پورت 9099" },
+            { key: "bridge" as const, title: "پل pos-bridge (پیشنهادی)", sub: "پروتکل PC-POS مستقیم با دستگاه — پورت 9099، با دفتر تراکنش و بازیابی" },
+            { key: "agent" as const, title: "PosAgent", sub: "سرویس ویندوزی Agent — HTTP 18765 / WebSocket 18766" },
           ]
         ).map((o) => (
           <button
