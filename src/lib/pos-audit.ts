@@ -145,9 +145,7 @@ export function auditToText(entries: PosAuditEntry[] = getAuditLog()): string {
       (e) =>
         `${e.atFa} — ${auditLabel(e.kind)}${e.code ? ` [${e.code}]` : ""}${
           e.rttMs != null ? ` ${e.rttMs}ms` : ""
-        }${e.source ? ` (منشأ: ${e.source})` : ""} — ${e.user}${
-          e.detail ? ` — ${e.detail}` : ""
-        }`,
+        }${e.source ? ` (منشأ: ${e.source})` : ""} — ${e.user}${e.detail ? ` — ${e.detail}` : ""}`,
     )
     .join("\n");
 }

@@ -35,7 +35,13 @@ export interface StartPaymentResponse {
 }
 
 export type AgentPaymentStatus =
-  "WaitingForCard" | "Processing" | "Success" | "Failed" | "Cancelled" | "Timeout" | "Error";
+  | "WaitingForCard"
+  | "Processing"
+  | "Success"
+  | "Failed"
+  | "Cancelled"
+  | "Timeout"
+  | "Error";
 
 export interface AgentPaymentResult {
   TransactionId: string;

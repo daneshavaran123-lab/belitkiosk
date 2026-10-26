@@ -58,10 +58,7 @@ function AdminInvoicesPage() {
     }
     setOpen(id);
     if (!items[id]) {
-      const { data } = await supabase
-        .from("invoice_items")
-        .select("*")
-        .eq("invoice_id", id);
+      const { data } = await supabase.from("invoice_items").select("*").eq("invoice_id", id);
       setItems((p) => ({ ...p, [id]: (data as Item[]) ?? [] }));
     }
   };
@@ -85,9 +82,7 @@ function AdminInvoicesPage() {
                 onClick={() => toggle(r.id)}
                 className="w-full grid grid-cols-2 md:grid-cols-5 gap-3 items-center p-4 text-right hover:bg-white/5 transition"
               >
-                <span className="font-mono font-bold text-bronze-light">
-                  {r.invoice_number}
-                </span>
+                <span className="font-mono font-bold text-bronze-light">{r.invoice_number}</span>
                 <span className="text-bronze-light/70 text-sm">{fmtDate(r.created_at)}</span>
                 <span className="text-bronze-light/70">
                   {r.payment_method === "card" ? "کارت‌خوان" : "نقدی"}
@@ -104,17 +99,12 @@ function AdminInvoicesPage() {
               {open === r.id && (
                 <div className="border-t border-primary/20 p-4 bg-black/30 space-y-2">
                   {(items[r.id] ?? []).map((it) => (
-                    <div
-                      key={it.id}
-                      className="flex justify-between text-sm text-bronze-light"
-                    >
+                    <div key={it.id} className="flex justify-between text-sm text-bronze-light">
                       <span>
                         {it.name} × {it.quantity}
                         {it.discount_percent > 0 && ` (${it.discount_percent}٪ تخفیف)`}
                       </span>
-                      <span className="font-bold text-white">
-                        {fmt(it.total_price)} تومان
-                      </span>
+                      <span className="font-bold text-white">{fmt(it.total_price)} تومان</span>
                     </div>
                   ))}
                   {(items[r.id]?.length ?? 0) === 0 && (

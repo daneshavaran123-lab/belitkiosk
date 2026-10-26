@@ -27,7 +27,9 @@ export const useCartStore = create<CartState>((set, get) => ({
   items: [],
   addItem: (item) => {
     const id = `${item.type}-${item.referenceId ?? Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
-    const totalPrice = Math.round(item.quantity * item.unitPrice * (1 - item.discountPercent / 100));
+    const totalPrice = Math.round(
+      item.quantity * item.unitPrice * (1 - item.discountPercent / 100),
+    );
     set((state) => ({ items: [...state.items, { ...item, id, totalPrice }] }));
   },
   removeItem: (id) => set((s) => ({ items: s.items.filter((i) => i.id !== id) })),
@@ -35,14 +37,21 @@ export const useCartStore = create<CartState>((set, get) => ({
     set((s) => ({
       items: s.items.map((i) =>
         i.id === id
-          ? { ...i, quantity, totalPrice: Math.round(quantity * i.unitPrice * (1 - i.discountPercent / 100)) }
+          ? {
+              ...i,
+              quantity,
+              totalPrice: Math.round(quantity * i.unitPrice * (1 - i.discountPercent / 100)),
+            }
           : i,
       ),
     })),
   clearCart: () => set({ items: [] }),
   getSubtotal: () => get().items.reduce((s, i) => s + i.quantity * i.unitPrice, 0),
   getTotalDiscount: () =>
-    get().items.reduce((s, i) => s + Math.round(i.quantity * i.unitPrice * (i.discountPercent / 100)), 0),
+    get().items.reduce(
+      (s, i) => s + Math.round(i.quantity * i.unitPrice * (i.discountPercent / 100)),
+      0,
+    ),
   getTotal: () => get().items.reduce((s, i) => s + i.totalPrice, 0),
   getItemCount: () => get().items.reduce((s, i) => s + i.quantity, 0),
 }));

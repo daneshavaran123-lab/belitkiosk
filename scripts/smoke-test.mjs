@@ -5,7 +5,10 @@
  * یا:       BASE_URL=https://your-app.liara.run npm run smoke
  */
 
-const base = (process.argv[2] || process.env.BASE_URL || "http://127.0.0.1:3000").replace(/\/$/, "");
+const base = (process.argv[2] || process.env.BASE_URL || "http://127.0.0.1:3000").replace(
+  /\/$/,
+  "",
+);
 
 const pages = [
   ["/", "صفحهٔ اصلی", "موزه"],

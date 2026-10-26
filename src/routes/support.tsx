@@ -16,7 +16,10 @@ export const Route = createFileRoute("/support")({
       { title: "حمایت و نظرسنجی — موزه افتخارات کشتی ایران" },
       { name: "description", content: "از موزه افتخارات کشتی حمایت کنید و در نظرسنجی شرکت کنید." },
       { property: "og:title", content: "حمایت و نظرسنجی موزه کشتی" },
-      { property: "og:description", content: "با حمایت و بازخورد خود میراث کشتی را زنده نگه دارید." },
+      {
+        property: "og:description",
+        content: "با حمایت و بازخورد خود میراث کشتی را زنده نگه دارید.",
+      },
     ],
   }),
   component: SupportPage,
@@ -119,8 +122,7 @@ function SupportPage() {
       <div
         className="fixed inset-0 z-0"
         style={{
-          background:
-            "linear-gradient(180deg, rgba(3,8,15,0.75) 0%, rgba(3,8,15,0.9) 100%)",
+          background: "linear-gradient(180deg, rgba(3,8,15,0.75) 0%, rgba(3,8,15,0.9) 100%)",
         }}
         aria-hidden
       />
@@ -210,7 +212,9 @@ function SupportPage() {
             <div className="text-center py-8">
               <CheckCircle2 className="w-16 h-16 text-emerald-400 mx-auto mb-3" />
               <p className="text-bronze-light font-bold text-lg">سپاس از بازخورد شما!</p>
-              <p className="text-bronze-light/60 text-sm mt-1">نظر شما برای بهبود موزه ارزشمند است.</p>
+              <p className="text-bronze-light/60 text-sm mt-1">
+                نظر شما برای بهبود موزه ارزشمند است.
+              </p>
             </div>
           ) : (
             <div className="space-y-5">

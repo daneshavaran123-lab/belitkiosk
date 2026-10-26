@@ -108,8 +108,7 @@ function TicketsPage() {
               <div
                 className="w-20 h-20 rounded-full flex items-center justify-center"
                 style={{
-                  background:
-                    "radial-gradient(circle at 30% 30%, #f5c98a, #cd7f32 55%, #8b5a2b)",
+                  background: "radial-gradient(circle at 30% 30%, #f5c98a, #cd7f32 55%, #8b5a2b)",
                 }}
               >
                 {(() => {
