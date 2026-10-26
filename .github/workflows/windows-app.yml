@@ -45,6 +45,11 @@ jobs:
       - name: Card-reader bridge tests
         run: dotnet test pos-bridge/tests/PosBridge.Tests
 
+      - name: Version from tag
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: bash
+        run: echo "APP_VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
+
       - name: Build Windows package
         run: node scripts/build-windows-app.mjs
 
@@ -59,4 +64,6 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
+          name: کیوسک موزه — نسخهٔ ویندوزی ${{ github.ref_name }}
+          body_path: installers/RELEASE-NOTES.md
           files: release/MuseumKiosk-Windows.zip
