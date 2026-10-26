@@ -41,3 +41,6 @@ pos-bridge/data/
 pos-bridge/logs/
 pos-bridge/tests/**/bin/
 pos-bridge/tests/**/obj/
+
+# Windows release package (npm run desktop:package)
+release/
