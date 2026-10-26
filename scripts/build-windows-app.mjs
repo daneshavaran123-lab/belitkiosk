@@ -107,7 +107,9 @@ fs.renameSync(shipped, target);
 
 console.log("\n▶ ۳/۵ ساخت سرویس کارت‌خوان (pos-bridge)...");
 if (!has("dotnet --version")) {
-  fail("‏.NET SDK 8 نصب نیست؛ سرویس کارت‌خوان بدون آن ساخته نمی‌شود (https://dotnet.microsoft.com/download).");
+  fail(
+    "‏.NET SDK 8 نصب نیست؛ سرویس کارت‌خوان بدون آن ساخته نمی‌شود (https://dotnet.microsoft.com/download).",
+  );
 }
 const bridgeSrc = path.join(root, "pos-bridge");
 const bridgeOut = path.join(out, "pos-bridge");
@@ -140,4 +142,6 @@ if (isWindows) {
 
 console.log(`\n✅ آماده شد: ${out}`);
 if (fs.existsSync(zipFile)) console.log(`   فایل فشرده: ${zipFile}`);
-console.log("   روی کیوسک: پوشه را کپی کنید و install-windows.bat را با Run as administrator اجرا کنید.");
+console.log(
+  "   روی کیوسک: پوشه را کپی کنید و install-windows.bat را با Run as administrator اجرا کنید.",
+);
