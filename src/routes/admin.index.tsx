@@ -9,6 +9,7 @@ import {
   KeyRound,
   Monitor,
   Download,
+  ShieldAlert,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,6 +18,7 @@ import { toast } from "sonner";
 import { Toaster } from "@/components/ui/sonner";
 import { formatNumber } from "@/lib/money";
 import { WINDOWS_DOWNLOAD_PATH } from "@/lib/windows-download";
+import { setAdminPassword, useAdminAccess } from "@/lib/admin-access";
 
 export const Route = createFileRoute("/admin/")({
   component: AdminDashboard,
@@ -25,6 +27,7 @@ export const Route = createFileRoute("/admin/")({
 const fmt = (n: number) => formatNumber(n);
 
 function AdminDashboard() {
+  const access = useAdminAccess();
   const [stats, setStats] = useState({ invoices: 0, revenue: 0, today: 0, todayRev: 0 });
   const [loading, setLoading] = useState(true);
 
@@ -62,6 +65,7 @@ function AdminDashboard() {
     <div className="space-y-6">
       <Toaster position="top-center" richColors />
       <h2 className="text-2xl font-black text-bronze-gradient">داشبورد</h2>
+      {access.openMode && <AdminPasswordSetupCard />}
       {loading ? (
         <p className="text-bronze-light/60">در حال بارگذاری...</p>
       ) : (
@@ -88,7 +92,129 @@ function AdminDashboard() {
       )}
 
       <WindowsAppCard />
-      <ChangePasswordCard />
+      {access.email && <ChangePasswordCard />}
+    </div>
+  );
+}
+
+function AdminPasswordSetupCard() {
+  const { email: currentEmail, refresh } = useAdminAccess();
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirm, setConfirm] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [notice, setNotice] = useState("");
+
+  const onSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!currentEmail) {
+      if (password.length < 8) {
+        toast.error("رمز باید حداقل ۸ کاراکتر باشد");
+        return;
+      }
+      if (password !== confirm) {
+        toast.error("تکرار رمز مطابقت ندارد");
+        return;
+      }
+    }
+    setSaving(true);
+    setNotice("");
+    const result = await setAdminPassword(email.trim(), password);
+    setSaving(false);
+    if (!result.ok) {
+      if (result.needsEmailConfirm) setNotice(result.message);
+      else toast.error(result.message);
+      return;
+    }
+    toast.success("رمز پنل گذاشته شد. از این به بعد ورود با همین ایمیل و رمز است.");
+    refresh();
+  };
+
+  return (
+    <div className="rounded-2xl p-6 max-w-xl border border-amber-500/40 bg-amber-500/10">
+      <div className="flex items-center gap-3 mb-4">
+        <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-amber-500/25">
+          <ShieldAlert className="w-5 h-5 text-amber-300" />
+        </div>
+        <div>
+          <h3 className="text-lg font-black text-amber-200">گذاشتن رمز برای پنل</h3>
+          <p className="text-xs text-amber-100/70">
+            پنل فعلاً بدون رمز است. بعد از گذاشتن رمز، ورود فقط با همین ایمیل و رمز ممکن است.
+          </p>
+        </div>
+      </div>
+      <form onSubmit={onSubmit} className="space-y-4">
+        {currentEmail ? (
+          <p className="text-sm text-bronze-light/80 leading-7">
+            با حساب{" "}
+            <span dir="ltr" className="text-white">
+              {currentEmail}
+            </span>{" "}
+            وارد شده‌اید. با زدن دکمه، همین حساب مدیر پنل می‌شود و ورود بدون رمز بسته می‌شود.
+          </p>
+        ) : (
+          <>
+            <div className="space-y-2">
+              <Label htmlFor="admin-email" className="text-bronze-light">
+                ایمیل مدیر
+              </Label>
+              <Input
+                id="admin-email"
+                type="email"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="you@example.com"
+                className="h-11 bg-black/40 border-primary/30 text-white"
+                dir="ltr"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="admin-pw" className="text-bronze-light">
+                رمز پنل
+              </Label>
+              <Input
+                id="admin-pw"
+                type="password"
+                required
+                minLength={8}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="h-11 bg-black/40 border-primary/30 text-white"
+                dir="ltr"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="admin-pw2" className="text-bronze-light">
+                تکرار رمز
+              </Label>
+              <Input
+                id="admin-pw2"
+                type="password"
+                required
+                minLength={8}
+                value={confirm}
+                onChange={(e) => setConfirm(e.target.value)}
+                className="h-11 bg-black/40 border-primary/30 text-white"
+                dir="ltr"
+              />
+            </div>
+          </>
+        )}
+        {notice && <p className="text-sm text-amber-200 leading-7">{notice}</p>}
+        <Button
+          type="submit"
+          disabled={saving}
+          className="h-11 px-6 font-black rounded-xl text-primary-foreground"
+          style={{ background: "linear-gradient(135deg, #f5c98a, #cd7f32 40%, #8b5a2b)" }}
+        >
+          {saving
+            ? "در حال ذخیره..."
+            : currentEmail
+              ? "بستن ورود بدون رمز"
+              : "گذاشتن رمز و بستن ورود بدون رمز"}
+        </Button>
+      </form>
     </div>
   );
 }

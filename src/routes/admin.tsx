@@ -17,8 +17,10 @@ import {
   Package,
   MessageSquare,
   CreditCard,
+  ShieldAlert,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { AdminAccessContext, fetchAdminOpenMode } from "@/lib/admin-access";
 
 export const Route = createFileRoute("/admin")({
   head: () => ({
@@ -41,11 +43,22 @@ function AdminLayout() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const [state, setState] = useState<"loading" | "ok" | "denied">("loading");
   const [email, setEmail] = useState<string>("");
+  const [openMode, setOpenMode] = useState(false);
+  const [version, setVersion] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
     const check = async () => {
+      const open = await fetchAdminOpenMode();
       const { data: userData } = await supabase.auth.getUser();
+      if (cancelled) return;
+      setOpenMode(open);
+      // پنل هنوز رمز ندارد: ورود بدون ایمیل و رمز
+      if (open) {
+        setEmail(userData.user?.email ?? "");
+        setState("ok");
+        return;
+      }
       if (!userData.user) {
         if (!cancelled) navigate({ to: "/admin/login" });
         return;
@@ -68,7 +81,7 @@ function AdminLayout() {
       cancelled = true;
       sub.subscription.unsubscribe();
     };
-  }, [navigate]);
+  }, [navigate, version]);
 
   if (pathname === "/admin/login")
     return (
@@ -112,74 +125,95 @@ function AdminLayout() {
   }
 
   return (
-    <div className="h-dvh max-h-dvh flex flex-col overflow-hidden bg-[#03080f] text-bronze-light">
-      <header className="shrink-0 border-b border-primary/20 bg-black/40 backdrop-blur">
-        <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div
-              className="w-10 h-10 rounded-xl flex items-center justify-center"
-              style={{
-                background: "linear-gradient(135deg, #f5c98a, #cd7f32 40%, #8b5a2b)",
-              }}
-            >
-              <LayoutDashboard className="w-5 h-5 text-[#03080f]" />
+    <AdminAccessContext.Provider
+      value={{ openMode, email, refresh: () => setVersion((v) => v + 1) }}
+    >
+      <div className="h-dvh max-h-dvh flex flex-col overflow-hidden bg-[#03080f] text-bronze-light">
+        <header className="shrink-0 border-b border-primary/20 bg-black/40 backdrop-blur">
+          <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div
+                className="w-10 h-10 rounded-xl flex items-center justify-center"
+                style={{
+                  background: "linear-gradient(135deg, #f5c98a, #cd7f32 40%, #8b5a2b)",
+                }}
+              >
+                <LayoutDashboard className="w-5 h-5 text-[#03080f]" />
+              </div>
+              <h1 className="text-lg font-black text-bronze-gradient">پنل مدیریت موزه</h1>
             </div>
-            <h1 className="text-lg font-black text-bronze-gradient">پنل مدیریت موزه</h1>
+            <div className="flex items-center gap-3">
+              {email ? (
+                <span className="hidden sm:block text-sm text-bronze-light/70" dir="ltr">
+                  {email}
+                </span>
+              ) : (
+                <span className="text-sm text-amber-300 font-bold">بدون رمز</span>
+              )}
+              <Link
+                to="/"
+                className="touch-btn h-10 px-3 rounded-xl glass border border-primary/20 text-bronze-light flex items-center gap-1 text-sm"
+              >
+                <Home className="w-4 h-4" /> سایت
+              </Link>
+              {email && (
+                <button
+                  onClick={async () => {
+                    await supabase.auth.signOut();
+                    navigate({ to: "/admin/login" });
+                  }}
+                  className="touch-btn h-10 px-3 rounded-xl bg-red-500/20 border border-red-500/40 text-red-200 flex items-center gap-1 text-sm"
+                >
+                  <LogOut className="w-4 h-4" /> خروج
+                </button>
+              )}
+            </div>
           </div>
-          <div className="flex items-center gap-3">
-            <span className="hidden sm:block text-sm text-bronze-light/70" dir="ltr">
-              {email}
-            </span>
-            <Link
-              to="/"
-              className="touch-btn h-10 px-3 rounded-xl glass border border-primary/20 text-bronze-light flex items-center gap-1 text-sm"
-            >
-              <Home className="w-4 h-4" /> سایت
-            </Link>
-            <button
-              onClick={async () => {
-                await supabase.auth.signOut();
-                navigate({ to: "/admin/login" });
-              }}
-              className="touch-btn h-10 px-3 rounded-xl bg-red-500/20 border border-red-500/40 text-red-200 flex items-center gap-1 text-sm"
-            >
-              <LogOut className="w-4 h-4" /> خروج
-            </button>
-          </div>
-        </div>
-      </header>
+          {openMode && (
+            <div className="bg-amber-500/15 border-t border-amber-500/40 text-amber-200 text-sm">
+              <div className="max-w-7xl mx-auto px-6 py-2 flex items-center gap-2">
+                <ShieldAlert className="w-4 h-4 shrink-0" />
+                <span>
+                  پنل مدیریت بدون رمز است و هر کسی آدرس آن را بداند وارد می‌شود. از داشبورد ←
+                  «گذاشتن رمز برای پنل» رمز بگذارید.
+                </span>
+              </div>
+            </div>
+          )}
+        </header>
 
-      <div className="flex-1 min-h-0 max-w-7xl w-full mx-auto flex flex-col lg:flex-row overflow-hidden">
-        <nav className="lg:w-56 shrink-0 p-4 lg:border-l lg:border-primary/15 lg:overflow-y-auto">
-          <ul className="flex lg:flex-col gap-2 overflow-x-auto">
-            {NAV.map((n) => {
-              const active = n.exact ? pathname === n.to : pathname.startsWith(n.to);
-              const Icon = n.icon;
-              return (
-                <li key={n.to}>
-                  <Link
-                    to={n.to}
-                    className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold whitespace-nowrap transition ${
-                      active ? "text-[#03080f]" : "text-bronze-light hover:bg-white/5"
-                    }`}
-                    style={
-                      active
-                        ? { background: "linear-gradient(135deg, #f5c98a, #cd7f32 40%, #8b5a2b)" }
-                        : undefined
-                    }
-                  >
-                    <Icon className="w-4 h-4" />
-                    {n.label}
-                  </Link>
-                </li>
-              );
-            })}
-          </ul>
-        </nav>
-        <main className="flex-1 min-h-0 overflow-y-auto p-6">
-          <Outlet />
-        </main>
+        <div className="flex-1 min-h-0 max-w-7xl w-full mx-auto flex flex-col lg:flex-row overflow-hidden">
+          <nav className="lg:w-56 shrink-0 p-4 lg:border-l lg:border-primary/15 lg:overflow-y-auto">
+            <ul className="flex lg:flex-col gap-2 overflow-x-auto">
+              {NAV.map((n) => {
+                const active = n.exact ? pathname === n.to : pathname.startsWith(n.to);
+                const Icon = n.icon;
+                return (
+                  <li key={n.to}>
+                    <Link
+                      to={n.to}
+                      className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold whitespace-nowrap transition ${
+                        active ? "text-[#03080f]" : "text-bronze-light hover:bg-white/5"
+                      }`}
+                      style={
+                        active
+                          ? { background: "linear-gradient(135deg, #f5c98a, #cd7f32 40%, #8b5a2b)" }
+                          : undefined
+                      }
+                    >
+                      <Icon className="w-4 h-4" />
+                      {n.label}
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
+          </nav>
+          <main className="flex-1 min-h-0 overflow-y-auto p-6">
+            <Outlet />
+          </main>
+        </div>
       </div>
-    </div>
+    </AdminAccessContext.Provider>
   );
 }

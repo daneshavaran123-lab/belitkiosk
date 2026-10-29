@@ -234,6 +234,8 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      admin_open_mode: { Args: never; Returns: boolean }
+      claim_admin_and_close_open_mode: { Args: never; Returns: undefined }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
