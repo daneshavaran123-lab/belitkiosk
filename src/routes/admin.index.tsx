@@ -1,13 +1,22 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { Receipt, TrendingUp, Ticket as TicketIcon, DollarSign, KeyRound } from "lucide-react";
+import {
+  Receipt,
+  TrendingUp,
+  Ticket as TicketIcon,
+  DollarSign,
+  KeyRound,
+  Monitor,
+  Download,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { Toaster } from "@/components/ui/sonner";
 import { formatNumber } from "@/lib/money";
+import { WINDOWS_DOWNLOAD_PATH } from "@/lib/windows-download";
 
 export const Route = createFileRoute("/admin/")({
   component: AdminDashboard,
@@ -78,7 +87,54 @@ function AdminDashboard() {
         </div>
       )}
 
+      <WindowsAppCard />
       <ChangePasswordCard />
+    </div>
+  );
+}
+
+function WindowsAppCard() {
+  const [link, setLink] = useState(WINDOWS_DOWNLOAD_PATH);
+
+  useEffect(() => {
+    setLink(window.location.origin + WINDOWS_DOWNLOAD_PATH);
+  }, []);
+
+  return (
+    <div className="glass-bronze rounded-2xl p-6 max-w-xl">
+      <div className="flex items-center gap-3 mb-4">
+        <div
+          className="w-10 h-10 rounded-xl flex items-center justify-center"
+          style={{ background: "linear-gradient(135deg, #f5c98a, #cd7f32 40%, #8b5a2b)" }}
+        >
+          <Monitor className="w-5 h-5 text-[#03080f]" />
+        </div>
+        <div>
+          <h3 className="text-lg font-black text-bronze-gradient">نسخهٔ ویندوزی کیوسک</h3>
+          <p className="text-xs text-bronze-light/60">
+            برنامهٔ کیوسک، سرویس کارت‌خوان و نصب‌کننده در یک فایل zip
+          </p>
+        </div>
+      </div>
+      <p className="text-sm text-bronze-light/80 mb-4 leading-7">
+        روی کامپیوتر کیوسک دانلود کنید، فایل را باز کنید، روی{" "}
+        <code dir="ltr">install-windows.bat</code> راست‌کلیک کنید و{" "}
+        <bdi className="font-bold">Run as administrator</bdi> را بزنید.
+      </p>
+      {/* target=_blank تا داخل برنامهٔ ویندوزی هم در مرورگر پیش‌فرض باز شود */}
+      <a
+        href={WINDOWS_DOWNLOAD_PATH}
+        target="_blank"
+        rel="noopener"
+        className="inline-flex items-center gap-2 h-11 px-6 font-black rounded-xl text-primary-foreground"
+        style={{ background: "linear-gradient(135deg, #f5c98a, #cd7f32 40%, #8b5a2b)" }}
+      >
+        <Download className="w-4 h-4" /> دانلود آخرین نسخه
+      </a>
+      <p className="mt-4 text-xs text-bronze-light/60">لینک مستقیم:</p>
+      <p className="text-xs text-white break-all select-all" dir="ltr">
+        {link}
+      </p>
     </div>
   );
 }

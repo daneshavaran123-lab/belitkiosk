@@ -30,6 +30,7 @@ import { Route as AdminPosRouteImport } from './routes/admin.pos'
 import { Route as AdminLoginRouteImport } from './routes/admin.login'
 import { Route as AdminInvoicesRouteImport } from './routes/admin.invoices'
 import { Route as ApiPublicHealthRouteImport } from './routes/api/public/health'
+import { Route as ApiDownloadWindowsRouteImport } from './routes/api/download/windows'
 
 const TicketsRoute = TicketsRouteImport.update({
   id: '/tickets',
@@ -136,6 +137,11 @@ const ApiPublicHealthRoute = ApiPublicHealthRouteImport.update({
   path: '/api/public/health',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiDownloadWindowsRoute = ApiDownloadWindowsRouteImport.update({
+  id: '/api/download/windows',
+  path: '/api/download/windows',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -159,6 +165,7 @@ export interface FileRoutesByFullPath {
   '/checkout/success': typeof CheckoutSuccessRoute
   '/admin/': typeof AdminIndexRoute
   '/api/public/health': typeof ApiPublicHealthRoute
+  '/api/download/windows': typeof ApiDownloadWindowsRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -181,6 +188,7 @@ export interface FileRoutesByTo {
   '/checkout/success': typeof CheckoutSuccessRoute
   '/admin': typeof AdminIndexRoute
   '/api/public/health': typeof ApiPublicHealthRoute
+  '/api/download/windows': typeof ApiDownloadWindowsRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -205,6 +213,7 @@ export interface FileRoutesById {
   '/checkout/success': typeof CheckoutSuccessRoute
   '/admin/': typeof AdminIndexRoute
   '/api/public/health': typeof ApiPublicHealthRoute
+  '/api/download/windows': typeof ApiDownloadWindowsRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -230,6 +239,7 @@ export interface FileRouteTypes {
     | '/checkout/success'
     | '/admin/'
     | '/api/public/health'
+    | '/api/download/windows'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -252,6 +262,7 @@ export interface FileRouteTypes {
     | '/checkout/success'
     | '/admin'
     | '/api/public/health'
+    | '/api/download/windows'
   id:
     | '__root__'
     | '/'
@@ -275,6 +286,7 @@ export interface FileRouteTypes {
     | '/checkout/success'
     | '/admin/'
     | '/api/public/health'
+    | '/api/download/windows'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -291,6 +303,7 @@ export interface RootRouteChildren {
   ApiHealthRoute: typeof ApiHealthRoute
   CheckoutSuccessRoute: typeof CheckoutSuccessRoute
   ApiPublicHealthRoute: typeof ApiPublicHealthRoute
+  ApiDownloadWindowsRoute: typeof ApiDownloadWindowsRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -442,6 +455,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicHealthRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/download/windows': {
+      id: '/api/download/windows'
+      path: '/api/download/windows'
+      fullPath: '/api/download/windows'
+      preLoaderRoute: typeof ApiDownloadWindowsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -483,6 +503,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiHealthRoute: ApiHealthRoute,
   CheckoutSuccessRoute: CheckoutSuccessRoute,
   ApiPublicHealthRoute: ApiPublicHealthRoute,
+  ApiDownloadWindowsRoute: ApiDownloadWindowsRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

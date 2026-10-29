@@ -605,6 +605,7 @@ select round(avg(overall_rating),2) from survey_responses;
    - `SUPABASE_URL`
    - `SUPABASE_PUBLISHABLE_KEY`
    - `NITRO_PRESET=node_server` (اختیاری؛ پیش‌فرض پروژه هم همین است)
+   - `WINDOWS_DOWNLOAD_URL` (اختیاری؛ بخش «لینک دانلود نسخهٔ ویندوزی» پایین)
 3. استقرار:
    ```bash
    npm install -g @liara/cli
@@ -623,6 +624,20 @@ select round(avg(overall_rating),2) from survey_responses;
 - `.liaraignore`: جلوگیری از آپلود `node_modules`، `.output` و `.env`.
 
 > نکته: متغیرهای `VITE_*` در زمان **build** خوانده می‌شوند؛ اگر بعد از استقرار آن‌ها را تغییر دادید، باید دوباره `liara deploy` بزنید.
+
+### لینک دانلود نسخهٔ ویندوزی
+
+بعد از استقرار، نسخهٔ ویندوزی (`MuseumKiosk-Windows.zip`) از همین سرور دانلود می‌شود. دکمهٔ
+«دانلود آخرین نسخه» در داشبورد پنل مدیریت هم به همین آدرس است:
+
+```
+https://<نام-برنامه>.liara.run/api/download/windows
+```
+
+این لینک ثابت است و همیشه آخرین نسخه را می‌دهد: سرور دانلود را به آخرین Release گیت‌هاب هدایت
+می‌کند. برای دانلود سریع‌تر داخل ایران می‌توانید فایل را در فضای ذخیره‌سازی ابری لیارا (با دسترسی
+عمومی) آپلود کنید و آدرس https آن را در متغیر `WINDOWS_DOWNLOAD_URL` بگذارید. این متغیر هنگام اجرا
+خوانده می‌شود و `liara deploy` دوباره لازم ندارد؛ کافی است برنامه دوباره اجرا شود.
 
 ### کارت‌خوان روی دامنهٔ HTTPS
 
