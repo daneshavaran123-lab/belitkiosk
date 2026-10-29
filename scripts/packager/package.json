@@ -1,0 +1,8 @@
+{
+  "name": "museum-kiosk-packager",
+  "private": true,
+  "description": "Pinned @electron/packager for scripts/build-windows-app.mjs (installed with npm ci from package-lock.json)",
+  "dependencies": {
+    "@electron/packager": "20.3.0"
+  }
+}
