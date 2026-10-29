@@ -14,6 +14,7 @@ import { Route as SupportRouteImport } from './routes/support'
 import { Route as SouvenirsRouteImport } from './routes/souvenirs'
 import { Route as MembershipRouteImport } from './routes/membership'
 import { Route as EventsRouteImport } from './routes/events'
+import { Route as DownloadRouteImport } from './routes/download'
 import { Route as CartRouteImport } from './routes/cart'
 import { Route as CafeRouteImport } from './routes/cafe'
 import { Route as BookstoreRouteImport } from './routes/bookstore'
@@ -55,6 +56,11 @@ const MembershipRoute = MembershipRouteImport.update({
 const EventsRoute = EventsRouteImport.update({
   id: '/events',
   path: '/events',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DownloadRoute = DownloadRouteImport.update({
+  id: '/download',
+  path: '/download',
   getParentRoute: () => rootRouteImport,
 } as any)
 const CartRoute = CartRouteImport.update({
@@ -150,6 +156,7 @@ export interface FileRoutesByFullPath {
   '/cafe': typeof CafeRoute
   '/cart': typeof CartRoute
   '/events': typeof EventsRoute
+  '/download': typeof DownloadRoute
   '/membership': typeof MembershipRoute
   '/souvenirs': typeof SouvenirsRoute
   '/support': typeof SupportRoute
@@ -173,6 +180,7 @@ export interface FileRoutesByTo {
   '/cafe': typeof CafeRoute
   '/cart': typeof CartRoute
   '/events': typeof EventsRoute
+  '/download': typeof DownloadRoute
   '/membership': typeof MembershipRoute
   '/souvenirs': typeof SouvenirsRoute
   '/support': typeof SupportRoute
@@ -198,6 +206,7 @@ export interface FileRoutesById {
   '/cafe': typeof CafeRoute
   '/cart': typeof CartRoute
   '/events': typeof EventsRoute
+  '/download': typeof DownloadRoute
   '/membership': typeof MembershipRoute
   '/souvenirs': typeof SouvenirsRoute
   '/support': typeof SupportRoute
@@ -224,6 +233,7 @@ export interface FileRouteTypes {
     | '/cafe'
     | '/cart'
     | '/events'
+    | '/download'
     | '/membership'
     | '/souvenirs'
     | '/support'
@@ -247,6 +257,7 @@ export interface FileRouteTypes {
     | '/cafe'
     | '/cart'
     | '/events'
+    | '/download'
     | '/membership'
     | '/souvenirs'
     | '/support'
@@ -271,6 +282,7 @@ export interface FileRouteTypes {
     | '/cafe'
     | '/cart'
     | '/events'
+    | '/download'
     | '/membership'
     | '/souvenirs'
     | '/support'
@@ -296,6 +308,7 @@ export interface RootRouteChildren {
   CafeRoute: typeof CafeRoute
   CartRoute: typeof CartRoute
   EventsRoute: typeof EventsRoute
+  DownloadRoute: typeof DownloadRoute
   MembershipRoute: typeof MembershipRoute
   SouvenirsRoute: typeof SouvenirsRoute
   SupportRoute: typeof SupportRoute
@@ -341,6 +354,13 @@ declare module '@tanstack/react-router' {
       path: '/events'
       fullPath: '/events'
       preLoaderRoute: typeof EventsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/download': {
+      id: '/download'
+      path: '/download'
+      fullPath: '/download'
+      preLoaderRoute: typeof DownloadRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/cart': {
@@ -496,6 +516,7 @@ const rootRouteChildren: RootRouteChildren = {
   CafeRoute: CafeRoute,
   CartRoute: CartRoute,
   EventsRoute: EventsRoute,
+  DownloadRoute: DownloadRoute,
   MembershipRoute: MembershipRoute,
   SouvenirsRoute: SouvenirsRoute,
   SupportRoute: SupportRoute,

@@ -37,10 +37,12 @@ namespace PosBridge
         // نگه‌داشتن در فیلد ایستا تا GC آن را آزاد نکند (یک نسخه از سرویس)
         private static Mutex _singleInstance;
 
-        private static int Main()
+        private static int Main(string[] args)
         {
             _baseDir = AppDomain.CurrentDomain.BaseDirectory;
             AppDomain.CurrentDomain.UnhandledException += (s, e) => LogCrash(e.ExceptionObject as Exception);
+
+            if (Array.IndexOf(args, "--setup") >= 0) return RunSetup();
 
             bool firstInstance;
             _singleInstance = new Mutex(true, "Global\\MuseumPosBridge", out firstInstance);
@@ -77,6 +79,31 @@ namespace PosBridge
                 var ctx = listener.GetContext();
                 new Thread(() => Handle(ctx)) { IsBackground = true }.Start();
             }
+        }
+
+        /// <summary>«PosBridge.exe --setup» از نصب‌کننده: توکن و رمز متصدی بدون پنل مدیریت</summary>
+        private static int RunSetup()
+        {
+            Console.OutputEncoding = new UTF8Encoding(false);
+            var path = Path.Combine(_baseDir, "appsettings.json");
+            try
+            {
+                if (File.Exists(path)) Json.DeserializeObject(File.ReadAllText(path));
+            }
+            catch (Exception ex)
+            {
+                // فایل خراب با مقادیر پیش‌فرض بازنویسی نشود (IP دستگاه و بقیه از دست می‌رود)
+                Console.WriteLine("appsettings.json خوانده نشد؛ تنظیمات تغییر نکرد: " + ex.Message);
+                return 1;
+            }
+            var config = Config.Load(path);
+            var result = BridgeSetup.Run(config.AccessToken, config.CashierPinHash, Console.In, Console.Out,
+                Console.IsInputRedirected ? (Func<string>)null : BridgeSetup.ReadMasked);
+            if (!result.Changed) return 0;
+            config.AccessToken = result.AccessToken;
+            config.CashierPinHash = result.CashierPinHash;
+            config.Save(path);
+            return 0;
         }
 
         private static void LogCrash(Exception ex)

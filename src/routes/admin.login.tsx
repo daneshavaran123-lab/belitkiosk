@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { Toaster } from "@/components/ui/sonner";
 import { PageShell } from "@/components/PageShell";
-import { LogIn, KeyRound } from "lucide-react";
+import { LogIn, KeyRound, Monitor } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -137,6 +137,14 @@ function AdminLoginPage() {
             <KeyRound className="w-4 h-4" />
             فراموشی رمز عبور
           </button>
+
+          <Link
+            to="/download"
+            className="w-full text-center text-sm text-bronze-light/80 hover:text-primary font-medium flex items-center justify-center gap-1"
+          >
+            <Monitor className="w-4 h-4" />
+            دانلود نسخهٔ ویندوزی (بدون ورود)
+          </Link>
         </form>
       </section>
 

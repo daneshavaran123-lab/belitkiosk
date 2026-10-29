@@ -4,7 +4,7 @@
  * برنامه سرور داخلی برنامه (خروجی build) را روی 127.0.0.1 بالا می‌آورد و
  * همان را در یک پنجرهٔ کیوسک ۱۰۸۰×۱۹۲۰ نمایش می‌دهد. هیچ مرورگر بیرونی لازم نیست.
  */
-const { app, BrowserWindow, globalShortcut, shell, dialog } = require("electron");
+const { app, BrowserWindow, globalShortcut, shell, dialog, ipcMain } = require("electron");
 const path = require("node:path");
 const fs = require("node:fs");
 const net = require("node:net");
@@ -22,6 +22,56 @@ function appRoot() {
 function serverEntry() {
   return path.join(appRoot(), ".output", "server", "index.mjs");
 }
+
+/** آدرس سرور داخلی (مثلاً http://127.0.0.1:41890)؛ بعد از بالا آمدن سرور مقدار می‌گیرد */
+let appOrigin = "";
+
+/** فقط صفحه‌های خود برنامه */
+function isAppUrl(url) {
+  try {
+    return appOrigin !== "" && new URL(url).origin === appOrigin;
+  } catch {
+    return false;
+  }
+}
+
+/** لینک‌های بیرونی فقط http/https و در مرورگر پیش‌فرض */
+function openExternalSafe(url) {
+  if (/^https?:\/\//i.test(url)) shell.openExternal(url);
+}
+
+/**
+ * appsettings.json سرویس کارت‌خوان: کنار برنامهٔ نصب‌شده (install-windows.bat) یا، اگر برنامه
+ * مستقیم از پوشهٔ zip اجرا شود، در پوشهٔ pos-bridge کنار آن
+ */
+function bridgeSettingsPaths() {
+  if (process.env.POS_BRIDGE_SETTINGS) return [process.env.POS_BRIDGE_SETTINGS];
+  const exeDir = path.dirname(process.execPath);
+  const rel = ["pos-bridge", "bin", "Release", "net48", "appsettings.json"];
+  return [path.join(exeDir, ...rel), path.join(exeDir, "..", ...rel)];
+}
+
+/** توکن سرویس کارت‌خوان که نصب‌کننده ساخته؛ هر بار از فایل خوانده می‌شود تا تغییرش اعمال شود */
+function readBridgeToken() {
+  for (const file of bridgeSettingsPaths()) {
+    try {
+      const text = fs.readFileSync(file, "utf8").replace(/^\uFEFF/, "");
+      const token = JSON.parse(text).accessToken;
+      return typeof token === "string" ? token : "";
+    } catch {
+      // فایل نیست یا خراب است؛ مسیر بعدی
+    }
+  }
+  return "";
+}
+
+// preload این را هنگام بارگذاری هر صفحه می‌خواند؛ توکن فقط به صفحه‌های خود برنامه داده می‌شود
+ipcMain.on("kiosk:info", (event) => {
+  event.returnValue = {
+    appVersion: app.getVersion(),
+    posAccessToken: isAppUrl(event.senderFrame?.url ?? "") ? readBridgeToken() : "",
+  };
+});
 
 /** پیدا کردن یک پورت آزاد محلی */
 function findFreePort(preferred) {
@@ -110,8 +160,13 @@ function createWindow(url) {
 
   // لینک‌های خارجی در مرورگر پیش‌فرض باز شوند، نه داخل کیوسک
   mainWindow.webContents.setWindowOpenHandler(({ url: target }) => {
-    shell.openExternal(target);
+    openExternalSafe(target);
     return { action: "deny" };
+  });
+  mainWindow.webContents.on("will-navigate", (event, target) => {
+    if (isAppUrl(target)) return;
+    event.preventDefault();
+    openExternalSafe(target);
   });
 }
 
@@ -143,7 +198,8 @@ if (!app.requestSingleInstanceLock()) {
   app.whenReady().then(async () => {
     try {
       const port = await startInternalServer();
-      createWindow(`http://127.0.0.1:${port}/`);
+      appOrigin = `http://127.0.0.1:${port}`;
+      createWindow(`${appOrigin}/`);
       registerShortcuts();
     } catch (err) {
       dialog.showErrorBox("اجرای برنامهٔ موزه ناموفق بود", String(err?.message ?? err));

@@ -126,9 +126,17 @@ export function getSerialNumber(): string {
   return read(LS_SERIAL, DEFAULT_SERIAL_NUMBER);
 }
 
-/** توکن دسترسی سرویس پل (فقط روی همین کیوسک ذخیره می‌شود) */
+/** توکنی که برنامهٔ ویندوزی از تنظیمات سرویس پل همین کامپیوتر می‌دهد (نصب‌کننده آن را می‌سازد) */
+export function getDesktopPosToken(): string {
+  if (typeof window === "undefined") return "";
+  const token = (window as { museumKiosk?: { posAccessToken?: unknown } }).museumKiosk
+    ?.posAccessToken;
+  return typeof token === "string" ? token : "";
+}
+
+/** توکن دسترسی سرویس پل: در برنامهٔ ویندوزی خودکار، وگرنه همان که در پنل ذخیره شده */
 export function getPosAccessToken(): string {
-  return read(LS_TOKEN, "");
+  return getDesktopPosToken() || read(LS_TOKEN, "");
 }
 
 export function setPosAccessToken(token: string) {
