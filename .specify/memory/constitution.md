@@ -1,50 +1,118 @@
-# [PROJECT_NAME] Constitution
-<!-- Example: Spec Constitution, TaskFlow Constitution, etc. -->
+# Iran Wrestling Museum Kiosk (belitkiosk) Constitution
 
 ## Core Principles
 
-### [PRINCIPLE_1_NAME]
-<!-- Example: I. Library-First -->
-[PRINCIPLE_1_DESCRIPTION]
-<!-- Example: Every feature starts as a standalone library; Libraries must be self-contained, independently testable, documented; Clear purpose required - no organizational-only libraries -->
+### I. Payment Safety — ایمنی پرداخت (NON-NEGOTIABLE)
 
-### [PRINCIPLE_2_NAME]
-<!-- Example: II. CLI Interface -->
-[PRINCIPLE_2_DESCRIPTION]
-<!-- Example: Every library exposes functionality via CLI; Text in/out protocol: stdin/args → stdout, errors → stderr; Support JSON + human-readable formats -->
+- هر پرداخت یک `transactionId` یکتا دارد. درخواست تکراری با همان شناسه **نباید** دوباره از کارت
+  مشتری کسر کند و نتیجهٔ قبلی را برمی‌گرداند.
+- تلاش دوباره فقط برای برقراری اتصال و **پیش از** ارسال مجاز است. بعد از ارسال حتی یک بایت به
+  کارت‌خوان، درخواست **نباید** دوباره فرستاده شود. هم‌زمان فقط یک پرداخت روی دستگاه انجام می‌شود.
+- بلیط یا فاکتور فقط وقتی صادر می‌شود که پاسخ دستگاه معتبر باشد: چک‌سام درست، و MessageId، مبلغ،
+  شمارهٔ پایانه و RRN با درخواست بخوانند و RRN قبلاً ثبت نشده باشد. هر حالت دیگر «نامطمئن /
+  نیازمند بررسی» است، **نه** موفق.
+- هر تراکنش پیش و پس از ارسال در دفتر تراکنش روی دیسک ثبت می‌شود. تأییدی که بعد از لغو یا پایان
+  زمان برسد (`approved_late`) **نباید** گم شود و برای بررسی دستی نشان داده می‌شود.
+- پرداخت نقدی فقط با رمز متصدی تأیید می‌شود. رمز در سرویس کارت‌خوان بررسی می‌شود (هش PBKDF2،
+  قفل پس از تلاش‌های نادرست)، نه در مرورگر.
 
-### [PRINCIPLE_3_NAME]
-<!-- Example: III. Test-First (NON-NEGOTIABLE) -->
-[PRINCIPLE_3_DESCRIPTION]
-<!-- Example: TDD mandatory: Tests written → User approved → Tests fail → Then implement; Red-Green-Refactor cycle strictly enforced -->
+دلیل: این بخش با پول واقعی بازدیدکننده کار می‌کند. کسر دوباره یا بلیط بدون پرداخت با تست بعدی
+جبران نمی‌شود.
 
-### [PRINCIPLE_4_NAME]
-<!-- Example: IV. Integration Testing -->
-[PRINCIPLE_4_DESCRIPTION]
-<!-- Example: Focus areas requiring integration tests: New library contract tests, Contract changes, Inter-service communication, Shared schemas -->
+### II. No Secrets in the Repository — هیچ رازی در مخزن (NON-NEGOTIABLE)
 
-### [PRINCIPLE_5_NAME]
-<!-- Example: V. Observability, VI. Versioning & Breaking Changes, VII. Simplicity -->
-[PRINCIPLE_5_DESCRIPTION]
-<!-- Example: Text I/O ensures debuggability; Structured logging required; Or: MAJOR.MINOR.BUILD format; Or: Start simple, YAGNI principles -->
+- مخزن عمومی است. رمز حساب‌ها، `accessToken`، `cashierPinHash`، رمز منوی دستگاه و کلید service
+  role **هرگز** commit نمی‌شوند. مقدار پیش‌فرض این کلیدها در فایل‌های تنظیمات خالی می‌ماند و روی
+  همان کامپیوتر ساخته می‌شود (مثلاً `PosBridge.exe --setup`).
+- رازی که منتشر شده باید **عوض** شود. پاک کردن آن از فایل کافی نیست، چون در تاریخچهٔ git می‌ماند.
+- سرویس کارت‌خوان فقط روی `127.0.0.1` گوش می‌دهد، Origin را با `allowedOrigins` می‌سنجد و با
+  `accessToken` (مقایسهٔ زمان‌ثابت) محافظت می‌شود.
+- کلید service role فقط در کد سرور (`*.server.ts`) استفاده می‌شود و **نباید** وارد bundle مرورگر یا
+  برنامهٔ ویندوزی شود.
+- شمارهٔ کارت فقط ماسک‌شده (۶ رقم اول و ۴ رقم آخر) ذخیره، لاگ یا نمایش داده می‌شود.
 
-## [SECTION_2_NAME]
-<!-- Example: Additional Constraints, Security Requirements, Performance Standards, etc. -->
+دلیل: هر رازی که در یک مخزن عمومی یا bundle سایت بیاید، عملاً در اختیار همه است.
 
-[SECTION_2_CONTENT]
-<!-- Example: Technology stack requirements, compliance standards, deployment policies, etc. -->
+### III. Database Access Through RLS and Migrations — دیتابیس فقط با RLS و migration
 
-## [SECTION_3_NAME]
-<!-- Example: Development Workflow, Review Process, Quality Gates, etc. -->
+- هر جدول `public` در همان migration این ترتیب را دارد: `CREATE TABLE` → `GRANT` →
+  `ENABLE ROW LEVEL SECURITY` → `CREATE POLICY`.
+- مرز امنیت، سیاست‌های RLS است. بررسی‌های سمت کلاینت (مثل `has_role` در UI) فقط برای نمایش‌اند.
+- نقش‌ها فقط در `public.user_roles` نگهداری و با `has_role()` (SECURITY DEFINER) بررسی می‌شوند.
+- تغییر schema فقط با فایل در `supabase/migrations/` انجام و با ابزار migration Lovable اجرا می‌شود.
+  اجرای SQL دستی روی دیتابیس ممنوع است. migrationها تا حد ممکن قابل اجرای دوباره نوشته می‌شوند و
+  **باید** پیش از ادغام روی یک Postgres آزمایشی اجرا و سیاست‌هایشان تست شوند.
+- کد سایت وقتی migration هنوز اجرا نشده **باید** امن رفتار کند (fail closed)؛ مثلاً به ورود عادی
+  برگردد، نه اینکه دسترسی را باز کند.
+- هر حالتی که امنیت را عمداً کم می‌کند (مثل پنل مدیریت بدون رمز) باید با تصمیم صریح مالک باشد، روی
+  صفحه هشدار بدهد و راه بستنش در دسترس باشد.
 
-[SECTION_3_CONTENT]
-<!-- Example: Code review requirements, testing gates, deployment approval process, etc. -->
+دلیل: سایت و کلید publishable آن عمومی‌اند. تنها چیزی که داده‌ها را محافظت می‌کند، قواعد خود
+دیتابیس است.
+
+### IV. Persian Touch-Kiosk Experience — تجربهٔ کیوسک فارسی و لمسی
+
+- رابط کاربر فارسی و راست‌به‌چپ است. مبالغ به تومان و با جداکنندهٔ فارسی نمایش داده می‌شوند.
+- طراحی برای صفحهٔ لمسی عمودی ۱۰۸۰×۱۹۲۰ است: دکمه‌های بزرگ، بدون وابستگی به hover، راست‌کلیک یا
+  صفحه‌کلید فیزیکی (رمزها با صفحه‌کلید لمسی روی صفحه).
+- هر قابلیت **باید** هم در برنامهٔ ویندوزی (Electron با سرور داخلی روی `127.0.0.1`) و هم در مرورگر
+  (سایت Lovable یا لیارا) کار کند.
+- پیام خطا برای بازدیدکننده به فارسی ساده است و می‌گوید چه باید کرد. جزئیات فنی در لاگ و پنل
+  مدیریت می‌ماند.
+- ابزارهای مدیر و پشتیبانی روی صفحه‌های بازدیدکننده نمایش داده نمی‌شوند.
+
+دلیل: کاربران بازدیدکنندگان موزه‌اند که پشت یک کیوسک لمسی ایستاده‌اند، نه کاربران کامپیوتر.
+
+### V. Verified Before Shipped — تست و اثبات پیش از انتشار
+
+- هر تغییر در منطق پرداخت، پروتکل PC-POS، دفتر تراکنش یا رمز متصدی تست خودکار دارد: xUnit در
+  `pos-bridge/tests/` و vitest در `tests/`.
+- رفتار وابسته به سخت‌افزار با شبیه‌ساز یا دستگاه جعلی تست می‌شود. هر چه روی دستگاه یا ویندوز واقعی
+  تست نشده، **باید** صریحاً اعلام شود.
+- نتیجهٔ تست صادقانه گزارش می‌شود. تست ناموفق یا اجرانشده پنهان نمی‌شود و هیچ تستی برای سبز کردن
+  CI حذف یا غیرفعال نمی‌شود.
+- ابزارهایی که بستهٔ پرداخت را می‌سازند با lockfile قفل می‌شوند. وابستگی شناور در build بستهٔ
+  ویندوزی مجاز نیست.
+
+دلیل: خطای پرداخت را فقط روی دستگاه واقعی و با پول واقعی می‌شود دید، پس هر چه پیش از آن قابل
+اثبات است، باید اثبات شود.
+
+## Technology & Deployment Constraints
+
+- **سایت:** TanStack Start + React 19 + Vite + Tailwind، با Supabase (Lovable Cloud) برای داده و
+  احراز هویت. خروجی `node_server` برای لیارا و برنامهٔ ویندوزی استفاده می‌شود.
+- **سرویس کارت‌خوان (`pos-bridge`):** .NET Framework 4.8 روی ویندوز ۱۰/۱۱، پروتکل PC-POS روی LAN
+  (پیش‌فرض TCP 17000). آدرس دستگاه، توکن و رمز متصدی فقط در `appsettings.json` کنار سرویس‌اند، نه
+  در کد. نصب‌کننده هنگام به‌روزرسانی تنظیمات و دفتر تراکنش‌ها را بازنویسی نمی‌کند.
+- **برنامهٔ ویندوزی:** Electron با سرور داخلی. پنجرهٔ کیوسک فقط صفحه‌های خود برنامه را نشان می‌دهد
+  و لینک‌های بیرونی در مرورگر پیش‌فرض باز می‌شوند.
+- **فایل‌های تولیدی** (`src/integrations/supabase/*`، `src/routeTree.gen.ts`) با ابزار سازندهٔ خود
+  هماهنگ می‌مانند. ویرایش دستی فقط برای همان تغییری مجاز است که ابزار هم می‌ساخت.
+- قالب‌بندی کد با همان نسخهٔ Prettier انجام می‌شود که در lockfile آمده است.
+
+## Development Workflow & Release
+
+- پروژه به Lovable وصل است: تاریخچهٔ push‌شده بازنویسی نمی‌شود (force-push، rebase یا amend روی
+  commitهای push‌شده ممنوع) و شاخهٔ متصل همیشه در حالت قابل اجرا می‌ماند.
+- تغییرات از طریق شاخه و Pull Request وارد `main` می‌شوند. ادغام فقط با CI سبز انجام می‌شود: lint،
+  typecheck، تست‌های وب، build، build و تست‌های `pos-bridge` و بستهٔ ویندوزی.
+- مستندات (`README.md`، `docs/`، `pos-bridge/README.md`، `installers/RELEASE-NOTES.md`) در همان
+  تغییر به‌روز می‌شوند.
+- نسخهٔ ویندوزی با workflow «Windows app» و تگ `vX.Y.Z` (SemVer) منتشر می‌شود. لینک
+  `/api/download/windows` همیشه آخرین Release را می‌دهد.
+- بعد از ادغام، migrationهای تازه در Lovable اجرا می‌شوند و سایت دوباره منتشر می‌شود (Publish در
+  Lovable، `liara deploy` برای لیارا).
 
 ## Governance
-<!-- Example: Constitution supersedes all other practices; Amendments require documentation, approval, migration plan -->
 
-[GOVERNANCE_RULES]
-<!-- Example: All PRs/reviews must verify compliance; Complexity must be justified; Use [GUIDANCE_FILE] for runtime development guidance -->
+- این سند بر سایر رویه‌های پروژه مقدم است. `AGENTS.md` و `README.md` راهنمای روزمره‌اند و در
+  صورت تعارض، این سند ملاک است.
+- اصلاح این سند فقط با Pull Request انجام می‌شود که تغییر، دلیل و اثرش بر کد و الگوهای
+  `.specify/templates/` را توضیح دهد. نسخه با SemVer بالا می‌رود: MAJOR برای حذف یا بازتعریف یک
+  اصل، MINOR برای افزودن اصل یا بخش یا گسترش جدی راهنما، PATCH برای توضیح و اصلاح متن.
+- هر Pull Request و بررسی کد انطباق با اصول I تا V را بررسی می‌کند. نقض اصل I یا II مانع ادغام است.
+  پیچیدگی اضافه باید در توضیح Pull Request توجیه شود.
+- این سند با هر تغییر در درگاه یا دستگاه پرداخت، و با هر نسخهٔ MAJOR برنامهٔ ویندوزی، دوباره بازبینی
+  می‌شود.
 
-**Version**: [CONSTITUTION_VERSION] | **Ratified**: [RATIFICATION_DATE] | **Last Amended**: [LAST_AMENDED_DATE]
-<!-- Example: Version: 2.1.1 | Ratified: 2025-06-13 | Last Amended: 2025-07-16 -->
+**Version**: 1.0.0 | **Ratified**: 2026-10-30 | **Last Amended**: 2026-10-30
