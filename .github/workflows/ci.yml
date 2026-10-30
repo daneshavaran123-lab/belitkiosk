@@ -34,3 +34,15 @@ jobs:
         run: dotnet build pos-bridge/PosBridge.csproj -c Release
       - name: Tests (PC-POS protocol, journal, LAN client)
         run: dotnet test pos-bridge/tests/PosBridge.Tests
+
+  db:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: PostgreSQL
+        run: |
+          if ! ls /usr/lib/postgresql/*/bin/initdb >/dev/null 2>&1; then
+            sudo apt-get update && sudo apt-get install -y postgresql
+          fi
+      - name: Migrations + RLS scenarios (supabase/tests)
+        run: bash supabase/tests/run.sh

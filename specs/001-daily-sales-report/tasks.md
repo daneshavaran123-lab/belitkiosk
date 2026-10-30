@@ -40,7 +40,7 @@ description: "Task list for the daily sales report (001)"
 
 **Purpose**: زیرساخت تست migration که هر دو migration این قابلیت به آن تکیه دارند
 
-- [ ] T001 Create `supabase/tests/stub.sql`: شبیه‌سازی حداقلی Supabase.
+- [X] T001 Create `supabase/tests/stub.sql`: شبیه‌سازی حداقلی Supabase.
   - نقش‌ها: `anon` و `authenticated` (NOLOGIN) و `service_role` (BYPASSRLS).
   - `CREATE EXTENSION pgcrypto`.
   - اسکیمای `auth`، با جدول `auth.users` (ستون‌های `instance_id, id, aud, role, email, encrypted_password, email_confirmed_at, created_at, updated_at, raw_app_meta_data, raw_user_meta_data, is_super_admin, is_sso_user, is_anonymous, confirmation_token, email_change, email_change_token_new, recovery_token`) و جدول `auth.identities`.
@@ -48,14 +48,14 @@ description: "Task list for the daily sales report (001)"
   - تابع `auth.jwt()` که `coalesce(nullif(current_setting('request.jwt.claims', true), ''), '{}')::jsonb` را برمی‌گرداند (برای `reviewed_by` در T020).
   - اسکیمای `storage` با جدول `storage.objects(id, bucket_id, name, owner)` و RLS روشن.
   - `GRANT USAGE` روی این اسکیماها به همهٔ نقش‌ها.
-- [ ] T002 Create `supabase/tests/run.sh`:
+- [X] T002 Create `supabase/tests/run.sh`:
   - یک cluster موقت PostgreSQL 16 در `$TMPDIR` با `initdb` می‌سازد. اگر root بود، با کاربر `postgres` و `runuser`.
   - روی `127.0.0.1:${PGPORT:-55432}` و بدون unix socket گوش می‌دهد.
   - `stub.sql` و سپس همهٔ `supabase/migrations/*.sql` را به ترتیب نام با `-v ON_ERROR_STOP=1` اجرا می‌کند.
   - آخرین migration را یک بار دیگر اجرا می‌کند تا قابل اجرای دوباره بودنش بررسی شود.
   - هر فایل سناریوی `supabase/tests/*.sql` (به‌جز `stub.sql`) را اجرا می‌کند. سناریوها در بلوک `DO` با `RAISE EXCEPTION` شکست می‌خورند.
   - در پایان cluster را می‌بندد و پاک می‌کند. با خروجی غیر صفر برای هر خطا.
-- [ ] T003 [P] Add job `db` to `.github/workflows/ci.yml` روی `ubuntu-latest`: checkout و
+- [X] T003 [P] Add job `db` to `.github/workflows/ci.yml` روی `ubuntu-latest`: checkout و
   `bash supabase/tests/run.sh` با `PATH` شامل `/usr/lib/postgresql/16/bin`. اگر روی runner نبود، اول
   `sudo apt-get install -y postgresql-16`.
 
@@ -67,7 +67,7 @@ description: "Task list for the daily sales report (001)"
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete
 
-- [ ] T004 Create `src/lib/daily-report.ts` با این تابع‌های خالص:
+- [X] T004 Create `src/lib/daily-report.ts` با این تابع‌های خالص:
   - `tehranToday(now = new Date()): string` → امروز به وقت تهران به‌صورت `YYYY-MM-DD` (`Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Tehran" })`).
   - `addDays(day, n)`.
   - `isFutureDay(day, now)`.
@@ -75,7 +75,7 @@ description: "Task list for the daily sales report (001)"
   - `formatTehranTime(iso)` → `hh:mm` فارسی.
   - `rialToToman(rial)` → `Math.round(rial / 10)`.
   - هیچ تابعی به ساعت یا منطقهٔ زمانی دستگاه وابسته نباشد (research R2).
-- [ ] T005 [P] Create `tests/daily-report.test.ts`:
+- [X] T005 [P] Create `tests/daily-report.test.ts`:
   - `tehranToday` برای `2026-10-30T20:29:00Z` → `2026-10-30` و برای `2026-10-30T20:31:00Z` → `2026-10-31` (UTC+3:30).
   - `isFutureDay`.
   - `formatJalaliLong("2026-10-30")` شامل «۱۴۰۵» و «آبان».
