@@ -13,7 +13,7 @@
 
 ## Requirement Completeness
 
-- [ ] No [NEEDS CLARIFICATION] markers remain
+- [x] No [NEEDS CLARIFICATION] markers remain
 - [x] Requirements are testable and unambiguous
 - [x] Success criteria are measurable
 - [x] Success criteria are technology-agnostic (no implementation details)
@@ -24,7 +24,7 @@
 
 ## Feature Readiness
 
-- [ ] All functional requirements have clear acceptance criteria
+- [x] All functional requirements have clear acceptance criteria
 - [x] User scenarios cover primary flows
 - [x] Feature meets measurable outcomes defined in Success Criteria
 - [x] No implementation details leak into specification
@@ -37,3 +37,6 @@
     to the server so the report shows them anywhere).
   - FR-008: which printer the printed report targets (A4, the kiosk's 80 mm receipt printer, or
     both).
+- Iteration 2 (2026-10-30): clarifications answered (Q1: B, Q2: A) and written into the spec
+  (Clarifications section, FR-007/007a/007b/007c, FR-008, FR-011, edge cases, SC-006,
+  assumptions). All items pass; ready for `/speckit-plan` (or `/speckit-clarify`).
