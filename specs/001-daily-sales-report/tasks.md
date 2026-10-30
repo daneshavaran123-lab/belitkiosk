@@ -235,7 +235,6 @@ description: "Task list for the daily sales report (001)"
       - `last_sync_at = now()`.
       - برمی‌گرداند `{ server_time, clock_offset_seconds, remote_reviews }` برای ردیف‌های همین کیوسک با `reviewed_at > p_since` و `reviewed_by <> 'کیوسک'`.
       - `GRANT EXECUTE TO anon`.
-      - همین تغییر امضا و پاسخ (`p_kiosk_now` و `clock_offset_seconds`) در `contracts/kiosk-sync.md` §۲ و در `data-model.md` (توضیح `occurred_at`) هم به‌روز شود.
     - `review_pos_transaction(p_kiosk_id uuid, p_transaction_id text, p_note text)`: فقط مدیر یا حالت بدون رمز. اگر قبلاً بررسی شده، بدون تغییر. `reviewed_by` = ایمیل از `auth.jwt() ->> 'email'` یا «حالت بدون رمز».
     - `review_transactions_for_day(p_day date) RETURNS TABLE(...)`: `SECURITY INVOKER`، همان مرز روز تهران، با نام کیوسک.
   - **`daily_sales_report`**: با `CREATE OR REPLACE` بازنویسی شود تا `review` را پر کند: `pending` و `reviewed` (هر کدام `count` و `amount_rial`) و `last_sync_at = max(kiosk_devices.last_sync_at)`. وقتی هیچ کیوسکی ثبت نشده، `review` برابر `null` است.

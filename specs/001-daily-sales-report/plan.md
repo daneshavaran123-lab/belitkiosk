@@ -93,12 +93,15 @@ specs/001-daily-sales-report/
 ```text
 supabase/
 ├── migrations/
-│   └── 2026110xxxxxxx_daily_sales_report.sql   # ستون‌های invoice_items، ایندکس‌ها، kiosk_devices،
-│                                               # pos_review_transactions، RLS، ۴ تابع
+│   ├── 20261101000000_daily_sales_report.sql   # US1: ستون‌های invoice_items، ایندکس‌ها، daily_sales_report
+│   └── 20261101000100_kiosk_review_sync.sql    # US2: kiosk_devices، pos_review_transactions، RLS،
+│                                               # register_kiosk، kiosk_sync_review_transactions،
+│                                               # review_pos_transaction، review_transactions_for_day،
+│                                               # و بازنویسی daily_sales_report با بخش review
 └── tests/                                      # تازه
-    ├── stub.sql                                # نقش‌ها، auth.uid()، storage (شبیه‌سازی حداقلی Supabase)
+    ├── stub.sql                                # نقش‌ها، auth.uid()، auth.jwt()، storage (شبیه‌سازی حداقلی Supabase)
     ├── daily_report.sql                        # سناریوهای گزارش و مرز روز
-    ├── kiosk_sync.sql                          # سناریوهای کلید، upsert، عدم ذخیرهٔ کارت، بررسی یک‌طرفه
+    ├── kiosk_sync.sql                          # سناریوهای کلید، upsert، عدم ذخیرهٔ کارت، بررسی یک‌طرفه، اصلاح ساعت
     └── run.sh
 
 src/
@@ -106,7 +109,8 @@ src/
 ├── lib/
 │   ├── daily-report.ts              # تازه: امروزِ تهران، تبدیل شمسی↔میلادی، fetch و نگاشت پاسخ، قالب‌بندی
 │   ├── invoice.ts                   # ذخیرهٔ item_type و reference_id
-│   └── pos.ts                       # کلاینت /sync/pair، /sync/activate، /sync/status
+│   ├── pos.ts                       # کلاینت /sync/pair، /sync/activate، /sync/status، /sync/disable
+│   └── pos-audit.ts                 # نوع رویداد ممیزی تازه sync:pair
 ├── routes/
 │   ├── admin.tsx                    # آیتم منوی «گزارش روزانه»
 │   ├── admin.reports.tsx            # تازه: صفحهٔ گزارش + بخش چاپ
@@ -115,21 +119,29 @@ src/
 │   └── cart.tsx                     # فرستادن type و referenceId ردیف‌ها به saveInvoice
 ├── components/
 │   └── DailyReportPrint.tsx         # تازه: نسخهٔ چاپی A4
+├── styles.css                       # قواعد @media print و @page A4
 └── routeTree.gen.ts                 # دو مسیر تازه
 
 pos-bridge/
 ├── ReviewSync.cs                    # تازه: حلقهٔ همگام‌سازی، ساخت بدنه (بدون کارت)، اعمال بررسی راه دور
-├── TransactionJournal.cs            # UpdatedAt، ReviewedAt، ReviewedBy، ApplyRemoteReview، ChangedSince
+├── TransactionJournal.cs            # UpdatedAt، ReviewedAt، ReviewedBy، ReviewNote، ApplyRemoteReview، ChangedSince
+├── PosDevice.cs                     # MarkReviewed: ReviewedAt، ReviewedBy، ReviewNote
 ├── Config.cs                        # کلیدهای sync*؛ kioskSyncKey مثل accessToken محافظت‌شده
 ├── Program.cs                       # مسیرهای /sync/*، شروع ReviewSync
 ├── appsettings.json                 # کلیدهای تازه با مقدار خالی
+├── README.md                        # کلیدهای sync* و مسیرهای /sync/*
 └── tests/PosBridge.Tests/
+    ├── PosBridge.Tests.csproj       # link کردن ReviewSync.cs
+    ├── JournalTests.cs              # فیلدهای تازه، ChangedSince، ApplyRemoteReview
     └── ReviewSyncTests.cs           # تازه
 
 tests/
-└── daily-report.test.ts             # تازه
+├── daily-report.test.ts             # تازه
+└── pos-checkout.test.ts             # ذخیرهٔ item_type و reference_id در saveInvoice
 
-.github/workflows/ci.yml             # job تازهٔ db: Postgres service + supabase/tests/run.sh
+.github/workflows/ci.yml             # job تازهٔ db: PostgreSQL 16 روی runner + supabase/tests/run.sh
+
+README.md، docs/WINDOWS-APP.md، installers/RELEASE-NOTES.md   # مستندات گزارش و اتصال کیوسک
 ```
 
 **Structure Decision**: همان ساختار فعلی پروژه حفظ می‌شود: وب‌اپ در `src/`، migrationها در

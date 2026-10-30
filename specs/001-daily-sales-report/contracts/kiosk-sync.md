@@ -8,12 +8,18 @@
 - اگر `p_kiosk_id` از قبل باشد، هش و نام را **جایگزین** می‌کند (جفت کردن دوباره پس از نصب مجدد).
 - `GRANT EXECUTE` به `anon` و `authenticated` (خود تابع دسترسی را بررسی می‌کند).
 
-## 2. `kiosk_sync_review_transactions(p_kiosk_id uuid, p_key text, p_rows jsonb, p_since timestamptz) → jsonb`
+## 2. `kiosk_sync_review_transactions(p_kiosk_id uuid, p_key text, p_rows jsonb, p_since timestamptz, p_kiosk_now timestamptz) → jsonb`
 
 - `SECURITY DEFINER`. اول `sha256(p_key)` را با `kiosk_devices.key_hash` مقایسه می‌کند. اگر نخواند،
   خطای `42501` می‌دهد و هیچ چیزی ثبت نمی‌شود.
 - `GRANT EXECUTE` به `anon` (سرویس کارت‌خوان بدون نشست کاربر و با کلید publishable صدا می‌زند).
 - حداکثر ۵۰۰ ردیف در هر فراخوانی (بیشتر → خطای `22023`). سرویس دسته‌دسته می‌فرستد.
+- `p_kiosk_now`: ساعت فعلی کیوسک (UTC) در لحظهٔ فراخوانی.
+- **اصلاح ساعت کیوسک**:
+  - تابع `offset := now() - p_kiosk_now` را حساب می‌کند.
+  - اگر `abs(offset) > interval '2 minutes'` باشد، `occurred_at` هر ردیف با `offset` جابه‌جا ذخیره می‌شود؛ وگرنه همان مقدار کیوسک.
+  - به این ترتیب روز گزارش با ساعت رسمی تهران تعیین می‌شود، حتی اگر ساعت کیوسک اشتباه باشد.
+  - اختلاف در پاسخ (`clock_offset_seconds`) برمی‌گردد تا کیوسک هشدار بدهد.
 
 ### `p_rows` (آرایه)
 
@@ -46,6 +52,7 @@
 ```json
 {
   "server_time": "2026-10-30T09:13:01Z",
+  "clock_offset_seconds": 4,
   "remote_reviews": [
     {
       "transaction_id": "…",
@@ -57,8 +64,11 @@
 }
 ```
 
-`remote_reviews`: ردیف‌های همین کیوسک که از راه دور بعد از `p_since` بررسی شده‌اند. سرویس آن‌ها را در
-دفتر محلی اعمال و `server_time` را به‌عنوان `p_since` بعدی ذخیره می‌کند.
+- `remote_reviews`: ردیف‌های همین کیوسک که از راه دور بعد از `p_since` بررسی شده‌اند
+  (`reviewed_by <> 'کیوسک'`). سرویس آن‌ها را در دفتر محلی اعمال و `server_time` را به‌عنوان `p_since`
+  بعدی ذخیره می‌کند.
+- `clock_offset_seconds`: `now() - p_kiosk_now` به ثانیه (مثبت یعنی ساعت کیوسک عقب است). سرویس آن را
+  در `/sync/status` می‌گذارد و پنل اگر قدر مطلقش بیش از ۱۲۰ باشد، هشدار «ساعت کیوسک تنظیم نیست» می‌دهد.
 
 ## 3. `review_pos_transaction(p_kiosk_id uuid, p_transaction_id text, p_note text) → void`
 
@@ -71,7 +81,7 @@
 | --- | --- | --- |
 | `POST` | `/sync/pair` | `{}` → `{ kioskId, kioskKey }`. شناسه و کلید تازه می‌سازد و ذخیره می‌کند (همگام‌سازی هنوز خاموش). اگر از قبل باشد، کلید تازه می‌سازد |
 | `POST` | `/sync/activate` | `{ supabaseUrl, supabaseKey, kioskName }` → `{ ok: true }`. فقط `https://…supabase.co` یا دامنهٔ معتبر https؛ `syncEnabled = true` |
-| `GET` | `/sync/status` | `{ enabled, kioskId, lastSyncedAt, lastAttemptAt, lastError, pendingCount }`. **بدون** کلید |
+| `GET` | `/sync/status` | `{ enabled, kioskId, lastSyncedAt, lastAttemptAt, lastError, pendingCount, clockOffsetSeconds }`. **بدون** کلید |
 | `POST` | `/sync/disable` | `{}` → `{ ok: true }` |
 
 - `/config` همچنان `kioskSyncKey` را نه برمی‌گرداند و نه می‌پذیرد (مثل `accessToken`).
