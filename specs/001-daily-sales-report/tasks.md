@@ -105,6 +105,8 @@ description: "Task list for the daily sales report (001)"
   - **روز آینده**: خطای `22023`.
   - **بدون دسترسی**: `anon` با حالت بدون رمز خاموش → همهٔ جمع‌ها صفر.
   - **CHECK**: درج `item_type='ticket'` بدون `reference_id` خطا بدهد.
+  - **کارایی (SC-001)**: ۱٬۰۰۰ فاکتور با ۲ ردیف برای هر کدام در یک روز بسازید. زمان یک فراخوانی `daily_sales_report` (با `clock_timestamp()` پیش و پس از آن) باید کمتر از ۵۰۰ میلی‌ثانیه باشد. این سقف محلی است و برای ۳ ثانیهٔ کل مسیر حاشیه می‌گذارد.
+  - **فقط خواندنی (FR-011)**: در `pg_proc`، تابع `provolatile = 's'` (STABLE) و `prosecdef = false` (SECURITY INVOKER) داشته باشد.
 - [ ] T007 [P] [US1] Add tests to `tests/daily-report.test.ts` برای `fetchDailyReport` با `supabase.rpc` جعلی:
   - پاسخ موفق به `DailyReport` نگاشت می‌شود.
   - خطای `PGRST202` → `{ kind: "not-enabled" }`.
@@ -151,9 +153,9 @@ description: "Task list for the daily sales report (001)"
   - **انتخاب روز**: `DayPicker` از `react-day-picker/persian` با `locale={faIR}` و `dir="rtl"`. روزهای بعد از `tehranToday()` با `disabled`. دکمه‌های «امروز» و «دیروز».
   - **سرتیتر**: «گزارش فروش — {formatJalaliLong(day)}». برای امروز «تا ساعت {formatTehranTime(generated_at)}» و دکمهٔ «به‌روزرسانی».
   - **کارت‌ها**: کارت‌های فروش کارتی و نقدی (مبلغ و تعداد فاکتور) و جمع کل.
-  - **جدول بلیط‌ها**: نوع → تعداد، با ردیف «نامشخص (فروش‌های قدیمی)» فقط وقتی `untyped_lines_quantity > 0`.
+  - **جدول بلیط‌ها**: نوع → تعداد، با ردیف «نامشخص (فروش‌های قدیمی)» فقط وقتی `untyped_lines_quantity > 0`. نوع بلیطی که حذف شده (`name === null`) «نوع حذف‌شده #{ticket_type_id}» نمایش داده شود.
   - **بخش بررسی**: وقتی `review === null` بنویسد «در دسترس نیست — کیوسک هنوز به گزارش وصل نشده».
-  - **حالت‌ها**: loading، «در این روز فروشی ثبت نشده»، not-enabled («گزارش روزانه هنوز روی دیتابیس فعال نشده است»)، network (با «تلاش دوباره»).
+  - **حالت‌ها**: loading، «در این روز فروشی ثبت نشده»، not-enabled («گزارش روزانه هنوز روی دیتابیس فعال نشده است»)، network (با «تلاش دوباره»)، و «دسترسی ندارید» (اگر `has_role` و `admin_open_mode` هر دو false باشند؛ معمولاً `AdminLayout` زودتر جلویش را می‌گیرد).
   - مطابق `contracts/report-ui.md`. هیچ‌جا صفر جای دادهٔ نیامده نمی‌نشیند.
 - [ ] T015 [US1] Add NAV entry in `src/routes/admin.tsx`:
   `{ to: "/admin/reports", label: "گزارش روزانه", icon: FileChartColumn, exact: false }` بعد از
@@ -177,7 +179,7 @@ description: "Task list for the daily sales report (001)"
 ### Tests for User Story 2
 
 - [ ] T016 [P] [US2] Create `supabase/tests/kiosk_sync.sql`:
-  - **ثبت کیوسک**: `register_kiosk` برای غیرمدیر (حالت بدون رمز خاموش) خطای `42501` می‌دهد و برای مدیر ثبت می‌کند. `key_hash` غیر هگز ۶۴ کاراکتری با CHECK رد می‌شود.
+  - **ثبت کیوسک**: `register_kiosk` برای غیرمدیر (حالت بدون رمز خاموش) خطای `42501` می‌دهد، برای مدیر ثبت می‌کند، و در حالت بدون رمز برای `anon` هم ثبت می‌کند (استثنای FR-007b). `key_hash` غیر هگز ۶۴ کاراکتری با CHECK رد می‌شود.
   - **کلید نادرست**: `kiosk_sync_review_transactions` با کلید نادرست `42501` می‌دهد و هیچ ردیفی ثبت نمی‌شود.
   - **کلید درست**: ثبت می‌شود و `last_sync_at` پر می‌شود.
   - **ارسال دوباره**: همان `transaction_id` یک ردیف می‌ماند و `status` به‌روز می‌شود.
@@ -185,16 +187,19 @@ description: "Task list for the daily sales report (001)"
   - **بیش از حد**: ۵۰۱ ردیف خطای `22023` می‌دهد.
   - **بررسی یک‌طرفه**: `review_pos_transaction` برای مدیر `reviewed=true` و `reviewed_by` را می‌گذارد. ارسال بعدی کیوسک با `reviewed=false` آن را برنمی‌گرداند.
   - **بررسی راه دور**: پاسخ همگام‌سازی با `p_since` قبلی آن بررسی را در `remote_reviews` دارد.
+  - **ساعت کیوسک**: با `p_kiosk_now = now() - interval '3 hours'` و `occurred_at = now() - interval '3 hours'`، ردیف با `occurred_at` تقریباً برابر `now()` ذخیره می‌شود و پاسخ `clock_offset_seconds` حدود ۱۰۸۰۰ است. با اختلاف کمتر از ۲ دقیقه، `occurred_at` دست نمی‌خورد.
   - **دسترسی ستونی**: مدیر از `kiosk_devices` ستون `key_hash` را نمی‌تواند `SELECT` کند (permission denied).
   - **گزارش**: `daily_sales_report` بخش `review` را با تعداد و مبلغ بر اساس روز تهرانِ `occurred_at` پر می‌کند.
 - [ ] T017 [P] [US2] Add to `pos-bridge/tests/PosBridge.Tests/JournalTests.cs`:
-  - `UpdatedAt`، `ReviewedAt` و `ReviewedBy` پس از بارگذاری دوباره از فایل حفظ می‌شوند.
+  - `UpdatedAt`، `ReviewedAt`، `ReviewedBy` و `ReviewNote` پس از بارگذاری دوباره از فایل حفظ می‌شوند.
   - هر `Save` مقدار `UpdatedAt` را جلو می‌برد.
-  - `ChangedSince(iso)` فقط تراکنش‌های `NeedsReview` با `UpdatedAt` بعد از آن را برمی‌گرداند.
-  - `ApplyRemoteReview` یک‌طرفه است و تراکنش بررسی‌شده را دوباره «بررسی‌نشده» نمی‌کند.
+  - `ChangedSince(iso)` تراکنش‌هایی را برمی‌گرداند که `NeedsReview || Reviewed` باشند و `UpdatedAt >= iso`. تراکنش موفق عادی هرگز برگردانده نمی‌شود.
+  - **بررسی روی کیوسک (رفع I1)**: یک تراکنش `uncertain` را با `PosDevice.MarkReviewed` بررسی کنید. چون `MarkReviewed` مقدار `NeedsReview = false` می‌گذارد، این تست تضمین می‌کند که تراکنش همچنان در `ChangedSince` می‌آید و `Reviewed = true` و `ReviewNote` آن درست است.
+  - `ApplyRemoteReview` یک‌طرفه است و تراکنش بررسی‌شده را دوباره «بررسی‌نشده» نمی‌کند. یادداشت راه دور در `ReviewNote` می‌نشیند، نه `Note`.
 - [ ] T018 [P] [US2] Create `pos-bridge/tests/PosBridge.Tests/ReviewSyncTests.cs` (با transport جعلی و serializer مبتنی بر `System.Text.Json`):
   - **بدون کارت**: بدنه هیچ کلید یا مقداری از `MaskedPan` ندارد. یک تراکنش با `MaskedPan = "603799******1234"` بسازید و بررسی کنید `603799` و `1234` در بدنه نیستند.
-  - **کلیدهای بدنه**: فقط کلیدهای مجاز قرارداد `contracts/kiosk-sync.md` می‌آیند.
+  - **کلیدهای بدنه**: فقط کلیدهای مجاز قرارداد `contracts/kiosk-sync.md` می‌آیند. `review_note` از `ReviewNote` است، نه `Note` (که پیام‌های سیستمی دارد).
+  - **ساعت کیوسک**: بدنه `p_kiosk_now` (ساعت فعلی کیوسک، UTC) دارد. `clock_offset_seconds` پاسخ در `Status()` می‌آید.
   - **فقط تغییرها**: فقط ردیف‌های تغییرکرده بعد از `pushedUntil` فرستاده می‌شوند.
   - **دسته‌ها**: حداکثر ۵۰۰ ردیف در هر فراخوانی.
   - **پاسخ موفق**: `remote_reviews` در دفتر اعمال و `pushedUntil` و `pulledUntil` به‌روز می‌شوند.
@@ -221,14 +226,16 @@ description: "Task list for the daily sales report (001)"
     - `GRANT SELECT` به `anon` و `authenticated` و RLS SELECT با همان شرط. INSERT، UPDATE و DELETE مستقیم برای هیچ نقشی مجاز نیست.
   - **توابع `SECURITY DEFINER SET search_path = public`** طبق `contracts/kiosk-sync.md`:
     - `register_kiosk(p_kiosk_id uuid, p_name text, p_key_hash text)`: فقط مدیر یا حالت بدون رمز، وگرنه `42501`. upsert هش و نام.
-    - `kiosk_sync_review_transactions(p_kiosk_id uuid, p_key text, p_rows jsonb, p_since timestamptz) RETURNS jsonb`:
+    - `kiosk_sync_review_transactions(p_kiosk_id uuid, p_key text, p_rows jsonb, p_since timestamptz, p_kiosk_now timestamptz) RETURNS jsonb`:
       - مقایسهٔ `encode(sha256(convert_to(p_key,'UTF8')),'hex')` با `key_hash`؛ اگر نخواند، `42501`.
       - بیش از ۵۰۰ ردیف → `22023`.
       - فقط کلیدهای مجاز قرارداد خوانده می‌شوند. upsert روی `(kiosk_id, transaction_id)`.
       - `reviewed` فقط `false → true` (با `reviewed_by = 'کیوسک'`).
+      - **اصلاح ساعت کیوسک**: `offset := now() - p_kiosk_now`. اگر `abs(offset) > interval '2 minutes'`، `occurred_at` هر ردیف با `offset` جابه‌جا ذخیره می‌شود؛ وگرنه همان مقدار کیوسک.
       - `last_sync_at = now()`.
-      - برمی‌گرداند `{ server_time, remote_reviews }` برای ردیف‌های همین کیوسک با `reviewed_at > p_since` و `reviewed_by <> 'کیوسک'`.
+      - برمی‌گرداند `{ server_time, clock_offset_seconds, remote_reviews }` برای ردیف‌های همین کیوسک با `reviewed_at > p_since` و `reviewed_by <> 'کیوسک'`.
       - `GRANT EXECUTE TO anon`.
+      - همین تغییر امضا و پاسخ (`p_kiosk_now` و `clock_offset_seconds`) در `contracts/kiosk-sync.md` §۲ و در `data-model.md` (توضیح `occurred_at`) هم به‌روز شود.
     - `review_pos_transaction(p_kiosk_id uuid, p_transaction_id text, p_note text)`: فقط مدیر یا حالت بدون رمز. اگر قبلاً بررسی شده، بدون تغییر. `reviewed_by` = ایمیل از `auth.jwt() ->> 'email'` یا «حالت بدون رمز».
     - `review_transactions_for_day(p_day date) RETURNS TABLE(...)`: `SECURITY INVOKER`، همان مرز روز تهران، با نام کیوسک.
   - **`daily_sales_report`**: با `CREATE OR REPLACE` بازنویسی شود تا `review` را پر کند: `pending` و `reviewed` (هر کدام `count` و `amount_rial`) و `last_sync_at = max(kiosk_devices.last_sync_at)`. وقتی هیچ کیوسکی ثبت نشده، `review` برابر `null` است.
@@ -236,12 +243,14 @@ description: "Task list for the daily sales report (001)"
   - جدول‌های `kiosk_devices` (Row بدون `key_hash`) و `pos_review_transactions`.
   - توابع `register_kiosk`، `kiosk_sync_review_transactions`، `review_pos_transaction` و `review_transactions_for_day`.
 - [ ] T022 [P] [US2] Update `pos-bridge/TransactionJournal.cs`:
-  - فیلدهای `UpdatedAt`، `ReviewedAt` و `ReviewedBy` در `PosTransaction`، و ذخیره و خواندنشان در JSONL (همان کلیدهای camelCase).
+  - فیلدهای `UpdatedAt`، `ReviewedAt`، `ReviewedBy` و `ReviewNote` در `PosTransaction`، و ذخیره و خواندنشان در JSONL (همان کلیدهای camelCase). `ReviewNote` فقط یادداشت بررسی است و از `Note` (پیام‌های سیستمی) جداست.
   - `Save` همیشه `UpdatedAt = Now()` بگذارد.
-  - متد `IList<PosTransaction> ChangedSince(string isoUtc)`: تراکنش‌های `NeedsReview` با `UpdatedAt` بزرگ‌تر، به ترتیب `UpdatedAt`.
-  - متد `bool ApplyRemoteReview(string id, string note, string reviewedAt, string reviewedBy)`: فقط وقتی `!Reviewed`، `Reviewed = true` و ذخیره. اگر تراکنش نبود، false.
-- [ ] T023 [US2] Update `PosDevice.MarkReviewed` in `pos-bridge/PosDevice.cs` تا `ReviewedAt = Now()` و
-  `ReviewedBy = "کیوسک"` هم بگذارد (پس از T022).
+  - متد `IList<PosTransaction> ChangedSince(string isoUtc)`: تراکنش‌هایی که `NeedsReview || Reviewed` باشند و `UpdatedAt >= isoUtc`، به ترتیب `UpdatedAt`. **نکته:** `PosDevice.MarkReviewed` فعلی `NeedsReview = false` می‌گذارد، پس فیلتر فقط روی `NeedsReview` بررسی‌های کیوسک را جا می‌انداخت. `>=` با upsert تکراری‌پذیر سرور بی‌خطر است و ردیفی که در همان لحظهٔ آخرین ارسال تغییر کرده جا نمی‌ماند.
+  - متد `bool ApplyRemoteReview(string id, string note, string reviewedAt, string reviewedBy)`: فقط وقتی `!Reviewed`، `Reviewed = true`، `NeedsReview = false` (مثل `MarkReviewed`)، `ReviewNote = note`، `ReviewedAt` و `ReviewedBy` و ذخیره. اگر تراکنش نبود، false.
+  - همهٔ متدهای تازه زیر همان `_lock` دفتر اجرا شوند، چون از thread همگام‌سازی، هم‌زمان با پرداخت، صدا زده می‌شوند.
+- [ ] T023 [US2] Update `PosDevice.MarkReviewed` in `pos-bridge/PosDevice.cs` (پس از T022):
+  - `ReviewedAt = Now()`، `ReviewedBy = "کیوسک"` و `ReviewNote = note` (یادداشت اختیاری است).
+  - افزودن «بررسی: …» به `Note` برای سازگاری با نمایش فعلی بماند.
 - [ ] T024 [P] [US2] Update `pos-bridge/Config.cs` و `pos-bridge/appsettings.json`:
   - کلیدهای تازه (Load، Save و مقدار پیش‌فرض) با مقادیر `syncEnabled: false`، `supabaseUrl: ""`، `supabaseKey: ""`، `kioskId: ""`، `kioskSyncKey: ""` و `syncIntervalSeconds: 60`.
   - `Normalize` مقدار `syncIntervalSeconds` را به «بین ۳۰ تا ۳۰۰» محدود کند.
@@ -249,18 +258,23 @@ description: "Task list for the daily sales report (001)"
 - [ ] T025 [US2] Create `pos-bridge/ReviewSync.cs` (پس از T022):
   - **وابستگی‌ها**: به `Config` یا `JavaScriptSerializer` وابسته نباشد تا در تست net8 link شود. تنظیمات، `ISyncTransport` (`Post(url, headers, body) → (status, body)`)، `Func<object,string> serialize` و `Func<string, Dictionary<string,object>> deserialize` را می‌گیرد.
   - **`BuildRows(IEnumerable<PosTransaction>)`**:
-    - فقط کلیدهای مجاز قرارداد را می‌سازد: `transaction_id`، `occurred_at = CreatedAt`، `amount_rial`، `status`، `reason`، `invoice_number`، `rrn`، `reviewed`، `review_note = Note`، `reviewed_at`.
-    - `reason`: متن فارسی از روی `Status` و `LateResponse` (مثلاً «پاسخ دستگاه نامطمئن بود»، «تأیید پس از لغو یا پایان زمان رسید»، «تراکنش وسط کار قطع شد»).
+    - فقط کلیدهای مجاز قرارداد را می‌سازد: `transaction_id`، `occurred_at = CreatedAt`، `amount_rial`، `status`، `reason`، `invoice_number`، `rrn`، `reviewed`، `review_note = ReviewNote`، `reviewed_at`.
+    - `reason` بر اساس `Status`، با این نگاشت:
+      - `approved_late` → «تأیید پس از لغو یا پایان زمان رسید»
+      - `timeout` → «کارت‌خوان در زمان مقرر پاسخ نداد»
+      - `uncertain`، `sending` یا `sent` → «نتیجهٔ پرداخت نامطمئن است (ارتباط یا سرویس وسط کار قطع شد)»
+      - `failed` → «ارسال به کارت‌خوان نیمه‌کاره ماند»
+      - هر وضعیت دیگر → «نیازمند بررسی»
     - **هرگز `MaskedPan`.**
   - **`RunOnce()`**:
     1. `data/sync-state.json` را بخواند.
-    2. `ChangedSince(pushedUntil)` را در دسته‌های ۵۰۰تایی به `{supabaseUrl}/rest/v1/rpc/kiosk_sync_review_transactions` با بدنهٔ `{ p_kiosk_id, p_key, p_rows, p_since: pulledUntil }` بفرستد.
+    2. `ChangedSince(pushedUntil)` را در دسته‌های ۵۰۰تایی به `{supabaseUrl}/rest/v1/rpc/kiosk_sync_review_transactions` با بدنهٔ `{ p_kiosk_id, p_key, p_rows, p_since: pulledUntil, p_kiosk_now: <UTC فعلی کیوسک> }` بفرستد.
     3. **هدرها**: `apikey`، و `Authorization: Bearer` فقط اگر کلید با `sb_publishable_` یا `sb_secret_` شروع نشود.
     4. در موفقیت: `remote_reviews` را با `ApplyRemoteReview` اعمال کند، `pushedUntil` را به بیشترین `UpdatedAt` فرستاده‌شده و `pulledUntil` را به `server_time` برساند، و `lastSyncedAt` را بگذارد.
     5. در خطا: فقط `lastError` و `lastAttemptAt`.
     6. **امنیت لاگ**: کلید در لاگ یا خطا نیاید.
   - **`Start()`**: یک thread پس‌زمینه (`IsBackground`) که هر `syncIntervalSeconds` بعلاوهٔ ۰ تا ۱۰ ثانیهٔ تصادفی `RunOnce` را در `try/catch` اجرا می‌کند و هیچ قفل پرداختی نمی‌گیرد (اصل I).
-  - **`Status()`** برای `/sync/status`.
+  - **`Status()`** برای `/sync/status`، شامل `clockOffsetSeconds` آخرین پاسخ.
 - [ ] T026 [US2] Wire sync into `pos-bridge/Program.cs` (پس از T024، T025):
   - **transport واقعی**: با `HttpWebRequest`، timeout ۱۵ ثانیه، و `ServicePointManager.SecurityProtocol |= SecurityProtocolType.Tls12`.
   - **راه‌اندازی**: شروع `ReviewSync` هنگام اجرا اگر `syncEnabled`.
@@ -286,7 +300,8 @@ description: "Task list for the daily sales report (001)"
 - [ ] T029 [US2] Add card «اتصال این کیوسک به گزارش روزانه» to `src/routes/admin.pos.tsx`:
   - وضعیت از `posSyncStatus()`: فعال یا غیرفعال، «آخرین ارسال: …»، آخرین خطا و تعداد در صف.
   - ورودی نام کیوسک (حداکثر ۸۰ کاراکتر، پیش‌فرض «کیوسک ۱»).
-  - دکمه‌های «اتصال» (`pairKiosk`) و «قطع اتصال» (`posSyncDisable`).
+  - دکمه‌های «اتصال» (`pairKiosk`) و «قطع اتصال» (`posSyncDisable`). هیچ تایپی برای اتصال لازم نیست (نام پیش‌فرض).
+  - اگر `|clockOffsetSeconds| > 120` بود، هشدار «ساعت کیوسک تنظیم نیست؛ ساعت ویندوز را درست کنید» نمایش داده شود.
   - رویداد ممیزی با `audits("sync:pair", …)` ثبت شود؛ نوع رویداد تازه به `src/lib/pos-audit.ts` اضافه شود.
 - [ ] T030 [US2] Fill the review section in `src/routes/admin.reports.tsx`:
   - بررسی‌نشده و بررسی‌شده (تعداد + مبلغ به تومان با `rialToToman`).
@@ -295,7 +310,7 @@ description: "Task list for the daily sales report (001)"
   - لینک «مشاهدهٔ فهرست» به `/admin/reports/review?day=…`.
 - [ ] T031 [US2] Create `src/routes/admin.reports.review.tsx` (`/admin/reports/review`، `validateSearch` با `day`):
   - جدول: زمان، مبلغ، علت، شمارهٔ فاکتور، شمارهٔ مرجع، کیوسک، وضعیت. **بدون شمارهٔ کارت.**
-  - برای ردیف بررسی‌نشده، دکمهٔ «بررسی شد» با یادداشت (حداکثر ۵۰۰ کاراکتر) → `markReviewed` و بارگذاری دوباره.
+  - برای ردیف بررسی‌نشده، دکمهٔ «بررسی شد» با یادداشت **اختیاری** (حداکثر ۵۰۰ کاراکتر)، تا روی صفحهٔ لمسی کیوسک بدون تایپ هم بشود (اصل IV) → `markReviewed` و بارگذاری دوباره.
   - مسیر را به `src/routeTree.gen.ts` اضافه کنید.
 
 **Checkpoint**: User Stories 1 و 2 هر دو مستقل کار می‌کنند
