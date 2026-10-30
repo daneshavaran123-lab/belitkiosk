@@ -105,5 +105,18 @@
 
 ### `data/sync-state.json` (تازه)
 
-`{ "lastSyncedAt": "<ISO>", "lastError": "", "lastAttemptAt": "<ISO>" }`. وضعیت همگام‌سازی برای
-`GET /sync/status` و پنل.
+```json
+{
+  "pushedUntil": "<ISO، ساعت کیوسک>",
+  "pulledUntil": "<ISO، ساعت سرور>",
+  "lastSyncedAt": "<ISO>",
+  "lastAttemptAt": "<ISO>",
+  "lastError": ""
+}
+```
+
+- `pushedUntil`: بیشترین `UpdatedAt` که با موفقیت فرستاده شده (ساعت خود کیوسک). ردیف‌هایی با
+  `UpdatedAt` بزرگ‌تر در دور بعد فرستاده می‌شوند.
+- `pulledUntil`: `server_time` آخرین پاسخ موفق (ساعت سرور). همان `p_since` بعدی است. دو مرجع زمانی
+  جدا نگه داشته می‌شوند تا اختلاف ساعت کیوسک و سرور چیزی را جا نیندازد.
+- بقیه برای `GET /sync/status` و پنل‌اند.
