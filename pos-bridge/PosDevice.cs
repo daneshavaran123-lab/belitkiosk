@@ -221,12 +221,7 @@ namespace PosBridge
 
         public bool MarkReviewed(string transactionId, string note)
         {
-            var tx = _journal.Get(transactionId);
-            if (tx == null) return false;
-            tx.Reviewed = true;
-            tx.NeedsReview = false;
-            if (!string.IsNullOrEmpty(note)) tx.Note = (string.IsNullOrEmpty(tx.Note) ? "" : tx.Note + " | ") + "بررسی: " + note;
-            _journal.Save(tx);
+            if (!_journal.MarkReviewed(transactionId, note, "کیوسک", null)) return false;
             PosLog.Info("review", "تراکنش " + transactionId + " بررسی شد");
             return true;
         }

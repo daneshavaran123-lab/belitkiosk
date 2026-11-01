@@ -71,6 +71,7 @@ import {
   type PosStep,
 } from "@/lib/pos";
 import { PosLiveBadge, type PosLiveState } from "@/components/PosLiveStatus";
+import { KioskSyncCard } from "@/components/KioskSyncCard";
 import {
   CashierPinCard,
   PosProtocolCard,
@@ -1601,6 +1602,8 @@ function AdminPos({ onLock }: { onLock: () => void }) {
       <PosTransactionsCard />
 
       <CashierPinCard />
+
+      <KioskSyncCard onAudit={(kind, detail) => audits(kind, { detail })} />
 
       <PosProtocolCard />
 

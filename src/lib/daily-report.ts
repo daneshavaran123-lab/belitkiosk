@@ -5,6 +5,8 @@
  * کامپیوتر کیوسک یا گوشی مدیر ممکن است اشتباه یا روی منطقهٔ دیگری باشد.
  */
 
+import type { PosSyncResult, PosSyncStatus } from "@/lib/pos";
+
 const TEHRAN = "Asia/Tehran";
 const DAY_RE = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -251,5 +253,146 @@ export async function fetchDailyReport(
     return report ? { ok: true, report } : failure("error");
   } catch {
     return failure("network");
+  }
+}
+
+/* ---------------- اتصال کیوسک به گزارش (جفت کردن) ---------------- */
+
+/** مراحل جفت کردن؛ هر کدام جدا تا در تست جعلی شوند */
+export interface PairDeps {
+  pair(): Promise<PosSyncResult<{ kioskId: string; keyHash: string }>>;
+  /** null یعنی ثبت شد */
+  register(kioskId: string, name: string, keyHash: string): Promise<{ message: string } | null>;
+  activate(): Promise<PosSyncResult<{ synced: boolean; status: PosSyncStatus }>>;
+}
+
+export type PairResult =
+  | { ok: true; synced: boolean; status: PosSyncStatus }
+  | { ok: false; step: "pair" | "register" | "activate"; message: string };
+
+export const DEFAULT_KIOSK_NAME = "کیوسک ۱";
+export const MAX_KIOSK_NAME = 80;
+
+/**
+ * کیوسک را به گزارش وصل می‌کند: ۱) سرویس شناسه و کلید می‌سازد و فقط هش کلید را می‌دهد، ۲) هش با
+ * نشست مدیر در سرور ثبت می‌شود، ۳) سرویس همگام‌سازی را روشن می‌کند. هر مرحله که شکست بخورد، بعدی
+ * اجرا نمی‌شود. کلید خام هرگز به صفحه نمی‌رسد.
+ */
+export async function pairKiosk(name: string, deps: PairDeps): Promise<PairResult> {
+  const clean = name.trim().slice(0, MAX_KIOSK_NAME) || DEFAULT_KIOSK_NAME;
+
+  const paired = await deps.pair();
+  if (!paired.ok) return { ok: false, step: "pair", message: paired.message };
+
+  const failed = await deps.register(paired.data.kioskId, clean, paired.data.keyHash);
+  if (failed) {
+    return {
+      ok: false,
+      step: "register",
+      message: `ثبت کیوسک در سرور ناموفق بود: ${failed.message}`,
+    };
+  }
+
+  const activated = await deps.activate();
+  if (!activated.ok) return { ok: false, step: "activate", message: activated.message };
+  return { ok: true, synced: activated.data.synced, status: activated.data.status };
+}
+
+/** وابستگی‌های واقعی؛ ماژول‌های سنگین فقط هنگام استفاده بار می‌شوند */
+export async function defaultPairDeps(): Promise<PairDeps> {
+  const pos = await import("@/lib/pos");
+  const { supabase } = await import("@/integrations/supabase/client");
+  return {
+    pair: () => pos.posSyncPair(),
+    register: async (kioskId, name, keyHash) => {
+      const { error } = await supabase.rpc("register_kiosk", {
+        p_kiosk_id: kioskId,
+        p_name: name,
+        p_key_hash: keyHash,
+      });
+      return error ? { message: error.message } : null;
+    },
+    activate: () =>
+      pos.posSyncActivate({
+        supabaseUrl: import.meta.env.VITE_SUPABASE_URL,
+        supabaseKey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+      }),
+  };
+}
+
+/* ---------------- فهرست تراکنش‌های نیازمند بررسی ---------------- */
+
+export interface ReviewTransaction {
+  kiosk_id: string;
+  kiosk_name: string;
+  transaction_id: string;
+  occurred_at: string;
+  amount_rial: number;
+  status: string;
+  reason: string;
+  invoice_number: string | null;
+  rrn: string | null;
+  needs_review: boolean;
+  reviewed: boolean;
+  review_note: string | null;
+  reviewed_at: string | null;
+  reviewed_by: string | null;
+}
+
+export type ReviewListResult =
+  | { ok: true; rows: ReviewTransaction[] }
+  | { ok: false; kind: ReportFailure; message: string };
+
+export const MAX_REVIEW_NOTE = 500;
+
+function rpcFailure(error: { code?: string; message: string }): {
+  kind: ReportFailure;
+  message: string;
+} {
+  const code = error.code ?? "";
+  let kind: ReportFailure = "error";
+  if (code === "PGRST202" || /could not find the function/i.test(error.message))
+    kind = "not-enabled";
+  else if (code === "42501") kind = "no-access";
+  else if (code === "") kind = "network";
+  return { kind, message: REPORT_MESSAGES[kind] };
+}
+
+/** تراکنش‌های نیازمند بررسی (و بررسی‌شدهٔ) یک روز به وقت تهران؛ کارت شماره‌ای در آن‌ها نیست */
+export async function fetchReviewTransactions(
+  day: string,
+  client?: RpcClient,
+): Promise<ReviewListResult> {
+  try {
+    const rpcClient =
+      client ?? ((await import("@/integrations/supabase/client")).supabase as unknown as RpcClient);
+    const { data, error } = await rpcClient.rpc("review_transactions_for_day", { p_day: day });
+    if (error) return { ok: false, ...rpcFailure(error) };
+    if (!Array.isArray(data)) return { ok: false, kind: "error", message: REPORT_MESSAGES.error };
+    return { ok: true, rows: data as ReviewTransaction[] };
+  } catch {
+    return { ok: false, kind: "network", message: REPORT_MESSAGES.network };
+  }
+}
+
+/** «بررسی شد»؛ یادداشت اختیاری است و تا ۵۰۰ کاراکتر بریده می‌شود */
+export async function markReviewed(
+  kioskId: string,
+  transactionId: string,
+  note: string,
+  client?: RpcClient,
+): Promise<{ ok: true } | { ok: false; message: string }> {
+  try {
+    const rpcClient =
+      client ?? ((await import("@/integrations/supabase/client")).supabase as unknown as RpcClient);
+    const { error } = await rpcClient.rpc("review_pos_transaction", {
+      p_kiosk_id: kioskId,
+      p_transaction_id: transactionId,
+      p_note: note.trim().slice(0, MAX_REVIEW_NOTE),
+    });
+    if (error) return { ok: false, message: rpcFailure(error).message };
+    return { ok: true };
+  } catch {
+    return { ok: false, message: REPORT_MESSAGES.network };
   }
 }

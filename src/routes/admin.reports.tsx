@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useCallback, useEffect, useState } from "react";
 import { CalendarDays, CreditCard, Banknote, Wallet, RefreshCw, Ticket } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -10,6 +10,7 @@ import {
   formatJalaliLong,
   formatTehranTime,
   isDay,
+  rialToToman,
   tehranToday,
   type DailyReport,
   type FetchReportResult,
@@ -245,7 +246,8 @@ function TicketsSection({ report }: { report: DailyReport }) {
 }
 
 function ReviewSection({ report }: { report: DailyReport }) {
-  if (report.review === null) {
+  const { review } = report;
+  if (review === null) {
     return (
       <section className="glass-bronze rounded-2xl p-5 space-y-2">
         <h3 className="font-black text-bronze-gradient">تراکنش‌های نیازمند بررسی</h3>
@@ -253,5 +255,48 @@ function ReviewSection({ report }: { report: DailyReport }) {
       </section>
     );
   }
-  return null;
+  const cells = [
+    {
+      label: "بررسی‌نشده",
+      count: review.pending.count,
+      amount: review.pending.amount_rial,
+      tone: review.pending.count > 0 ? "text-amber-200" : "text-white",
+    },
+    {
+      label: "بررسی‌شده",
+      count: review.reviewed.count,
+      amount: review.reviewed.amount_rial,
+      tone: "text-emerald-200",
+    },
+  ];
+  return (
+    <section className="glass-bronze rounded-2xl p-5 space-y-3">
+      <h3 className="font-black text-bronze-gradient">تراکنش‌های نیازمند بررسی</h3>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        {cells.map((c) => (
+          <div key={c.label} className="rounded-xl bg-black/30 p-4 space-y-1">
+            <p className="text-sm font-bold text-bronze-light/70">{c.label}</p>
+            <p className={`text-3xl font-black ${c.tone}`}>{formatNumber(c.count)}</p>
+            <p className="text-sm text-bronze-light/70">{toman(rialToToman(c.amount))}</p>
+          </div>
+        ))}
+      </div>
+      <p className="text-xs text-bronze-light/60 leading-6">
+        مبلغ تراکنش‌های نیازمند بررسی در جمع فروش نیامده؛ پس از بررسی (بازگشت وجه یا صدور دستی بلیط)
+        «بررسی شد» بزنید.{" "}
+        {review.last_sync_at ? (
+          <>آخرین ارسال از کیوسک: {formatTehranTime(review.last_sync_at)}</>
+        ) : (
+          <>آخرین ارسال از کیوسک: هنوز ارسال نشده</>
+        )}
+      </p>
+      <Link
+        to="/admin/reports/review"
+        search={{ day: report.day }}
+        className="inline-flex items-center h-11 px-4 rounded-xl font-bold border border-primary/30 text-bronze-light hover:bg-white/5"
+      >
+        مشاهدهٔ فهرست
+      </Link>
+    </section>
+  );
 }

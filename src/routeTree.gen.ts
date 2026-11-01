@@ -31,6 +31,7 @@ import { Route as AdminPosRouteImport } from './routes/admin.pos'
 import { Route as AdminLoginRouteImport } from './routes/admin.login'
 import { Route as AdminInvoicesRouteImport } from './routes/admin.invoices'
 import { Route as AdminReportsRouteImport } from './routes/admin.reports'
+import { Route as AdminReportsReviewRouteImport } from './routes/admin.reports_.review'
 import { Route as ApiPublicHealthRouteImport } from './routes/api/public/health'
 import { Route as ApiDownloadWindowsRouteImport } from './routes/api/download/windows'
 
@@ -144,6 +145,11 @@ const AdminReportsRoute = AdminReportsRouteImport.update({
   path: '/reports',
   getParentRoute: () => AdminRoute,
 } as any)
+const AdminReportsReviewRoute = AdminReportsReviewRouteImport.update({
+  id: '/reports_/review',
+  path: '/reports/review',
+  getParentRoute: () => AdminRoute,
+} as any)
 const ApiPublicHealthRoute = ApiPublicHealthRouteImport.update({
   id: '/api/public/health',
   path: '/api/public/health',
@@ -169,6 +175,7 @@ export interface FileRoutesByFullPath {
   '/tickets': typeof TicketsRoute
   '/admin/invoices': typeof AdminInvoicesRoute
   '/admin/reports': typeof AdminReportsRoute
+  '/admin/reports/review': typeof AdminReportsReviewRoute
   '/admin/login': typeof AdminLoginRoute
   '/admin/pos': typeof AdminPosRoute
   '/admin/products': typeof AdminProductsRoute
@@ -194,6 +201,7 @@ export interface FileRoutesByTo {
   '/tickets': typeof TicketsRoute
   '/admin/invoices': typeof AdminInvoicesRoute
   '/admin/reports': typeof AdminReportsRoute
+  '/admin/reports/review': typeof AdminReportsReviewRoute
   '/admin/login': typeof AdminLoginRoute
   '/admin/pos': typeof AdminPosRoute
   '/admin/products': typeof AdminProductsRoute
@@ -221,6 +229,7 @@ export interface FileRoutesById {
   '/tickets': typeof TicketsRoute
   '/admin/invoices': typeof AdminInvoicesRoute
   '/admin/reports': typeof AdminReportsRoute
+  '/admin/reports_/review': typeof AdminReportsReviewRoute
   '/admin/login': typeof AdminLoginRoute
   '/admin/pos': typeof AdminPosRoute
   '/admin/products': typeof AdminProductsRoute
@@ -249,6 +258,7 @@ export interface FileRouteTypes {
     | '/tickets'
     | '/admin/invoices'
     | '/admin/reports'
+    | '/admin/reports/review'
     | '/admin/login'
     | '/admin/pos'
     | '/admin/products'
@@ -274,6 +284,7 @@ export interface FileRouteTypes {
     | '/tickets'
     | '/admin/invoices'
     | '/admin/reports'
+    | '/admin/reports/review'
     | '/admin/login'
     | '/admin/pos'
     | '/admin/products'
@@ -300,6 +311,7 @@ export interface FileRouteTypes {
     | '/tickets'
     | '/admin/invoices'
     | '/admin/reports'
+    | '/admin/reports_/review'
     | '/admin/login'
     | '/admin/pos'
     | '/admin/products'
@@ -487,6 +499,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminReportsRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/admin/reports_/review': {
+      id: '/admin/reports_/review'
+      path: '/reports/review'
+      fullPath: '/admin/reports/review'
+      preLoaderRoute: typeof AdminReportsReviewRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/api/public/health': {
       id: '/api/public/health'
       path: '/api/public/health'
@@ -507,6 +526,7 @@ declare module '@tanstack/react-router' {
 interface AdminRouteChildren {
   AdminInvoicesRoute: typeof AdminInvoicesRoute
   AdminReportsRoute: typeof AdminReportsRoute
+  AdminReportsReviewRoute: typeof AdminReportsReviewRoute
   AdminLoginRoute: typeof AdminLoginRoute
   AdminPosRoute: typeof AdminPosRoute
   AdminProductsRoute: typeof AdminProductsRoute
@@ -519,6 +539,7 @@ interface AdminRouteChildren {
 const AdminRouteChildren: AdminRouteChildren = {
   AdminInvoicesRoute: AdminInvoicesRoute,
   AdminReportsRoute: AdminReportsRoute,
+  AdminReportsReviewRoute: AdminReportsReviewRoute,
   AdminLoginRoute: AdminLoginRoute,
   AdminPosRoute: AdminPosRoute,
   AdminProductsRoute: AdminProductsRoute,

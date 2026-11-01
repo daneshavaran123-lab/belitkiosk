@@ -118,7 +118,7 @@ namespace PosBridge.Tests
             return p;
         }
 
-        private PcPosLanClient Client(string mode, int timeoutSeconds = 3, string deviceIp = "127.0.0.1")
+        private PcPosLanClient Client(string mode, int timeoutSeconds = 3, string deviceIp = "127.0.0.1", int cancelGraceSeconds = 1)
         {
             return new PcPosLanClient(new LanOptions
             {
@@ -129,7 +129,7 @@ namespace PosBridge.Tests
                 ConnectTimeoutMs = 1000,
                 ConnectAttempts = 1,
                 ResponseTimeoutSeconds = timeoutSeconds,
-                CancelGraceSeconds = 1,
+                CancelGraceSeconds = cancelGraceSeconds,
                 LateResponseSeconds = 10,
                 ExpectedTerminalId = "5634056"
             }, _journal);
@@ -222,13 +222,15 @@ namespace PosBridge.Tests
         [Fact]
         public void CancelWaitsForDeviceAndKeepsApprovalThatArrivesInGrace()
         {
+            // پنجرهٔ زمانی دو طرفه و متقارن: لغو در ۵۰۰ms، پاسخ دستگاه در ۱۵۰۰ms، پایان مهلت لغو در ۲۵۰۰ms.
+            // هر دو طرف ۱ ثانیه حاشیه دارند تا کندی دیسک یا CPU (مثلاً fsync تست‌های موازی) تست را نشکند.
             _device.Mode = "callback";
-            _device.DelayMs = 1300;
+            _device.DelayMs = 1500;
             _device.Respond = r => Approve(r);
-            using (var client = Client("auto", timeoutSeconds: 5))
+            using (var client = Client("auto", timeoutSeconds: 5, cancelGraceSeconds: 2))
             {
                 var tx = NewTx();
-                new Thread(() => { Thread.Sleep(700); client.Cancel(tx.Id); }).Start();
+                new Thread(() => { Thread.Sleep(500); client.Cancel(tx.Id); }).Start();
                 var result = client.Pay(tx);
                 Assert.Equal("approved", result.Status);
                 Assert.True(result.CancelRequested);

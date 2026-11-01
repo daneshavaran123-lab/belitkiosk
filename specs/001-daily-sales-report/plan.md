@@ -114,16 +114,19 @@ src/
 ├── routes/
 │   ├── admin.tsx                    # آیتم منوی «گزارش روزانه»
 │   ├── admin.reports.tsx            # تازه: صفحهٔ گزارش + بخش چاپ
-│   ├── admin.reports.review.tsx     # تازه: فهرست تراکنش‌های نیازمند بررسی + «بررسی شد»
+│   ├── admin.reports_.review.tsx    # تازه: فهرست تراکنش‌های نیازمند بررسی + «بررسی شد» (آدرس /admin/reports/review؛ زیرخط = زیرمسیر admin.reports نیست)
 │   ├── admin.pos.tsx                # کارت «اتصال این کیوسک به گزارش روزانه» و وضعیت همگام‌سازی
 │   └── cart.tsx                     # فرستادن type و referenceId ردیف‌ها به saveInvoice
 ├── components/
+│   ├── JalaliDayPicker.tsx          # تازه: تقویم شمسی (روی کامپوننت Calendar پروژه)
+│   ├── KioskSyncCard.tsx            # تازه: کارت «اتصال این کیوسک به گزارش روزانه»
 │   └── DailyReportPrint.tsx         # تازه: نسخهٔ چاپی A4
 ├── styles.css                       # قواعد @media print و @page A4
 └── routeTree.gen.ts                 # دو مسیر تازه
 
 pos-bridge/
 ├── ReviewSync.cs                    # تازه: حلقهٔ همگام‌سازی، ساخت بدنه (بدون کارت)، اعمال بررسی راه دور
+├── HttpSyncTransport.cs             # تازه: POST واقعی (HTTPS، TLS 1.2، ۱۵ ثانیه، بدون ریدایرکت)
 ├── TransactionJournal.cs            # UpdatedAt، ReviewedAt، ReviewedBy، ReviewNote، ApplyRemoteReview، ChangedSince
 ├── PosDevice.cs                     # MarkReviewed: ReviewedAt، ReviewedBy، ReviewNote
 ├── Config.cs                        # کلیدهای sync*؛ kioskSyncKey مثل accessToken محافظت‌شده

@@ -395,6 +395,85 @@ export function bridgeHttpError(status: number): string {
   return `خطای سرویس کارت‌خوان (${status})`;
 }
 
+/* ---------------- همگام‌سازی با سرور (گزارش روزانه) ---------------- */
+
+export interface PosSyncStatus {
+  enabled: boolean;
+  /** شناسه و کلید برای این کیوسک ساخته شده است */
+  paired: boolean;
+  kioskId: string;
+  lastSyncedAt: string;
+  lastAttemptAt: string;
+  lastError: string;
+  /** تراکنش‌های تغییرکرده که هنوز به سرور نرسیده‌اند */
+  pendingCount: number;
+  /** اختلاف ساعت سرور و کیوسک (ثانیه)؛ بیش از ۱۲۰ یعنی ساعت کیوسک تنظیم نیست */
+  clockOffsetSeconds: number;
+}
+
+export type PosSyncResult<T> = { ok: true; data: T } | { ok: false; message: string };
+
+async function syncCall<T>(
+  path: string,
+  init: RequestInit,
+  timeoutMs: number,
+): Promise<PosSyncResult<T>> {
+  try {
+    const res = await req(path, init, timeoutMs);
+    let body: unknown = null;
+    try {
+      body = await res.json();
+    } catch {
+      /* بدنهٔ غیر JSON */
+    }
+    if (!res.ok) {
+      const message =
+        body &&
+        typeof body === "object" &&
+        typeof (body as { message?: unknown }).message === "string"
+          ? (body as { message: string }).message
+          : bridgeHttpError(res.status);
+      return { ok: false, message };
+    }
+    return { ok: true, data: body as T };
+  } catch (e) {
+    const aborted = e instanceof DOMException && e.name === "AbortError";
+    return {
+      ok: false,
+      message: aborted
+        ? "سرویس کارت‌خوان به‌موقع پاسخ نداد"
+        : "سرویس کارت‌خوان در دسترس نیست؛ مطمئن شوید روی همین کامپیوتر اجرا است",
+    };
+  }
+}
+
+const jsonPost = (body: unknown): RequestInit => ({
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify(body),
+});
+
+export function posSyncStatus(): Promise<PosSyncResult<PosSyncStatus>> {
+  return syncCall<PosSyncStatus>("/sync/status", { method: "GET" }, 5000);
+}
+
+/** شناسه و کلید تازه می‌سازد؛ فقط هش SHA-256 کلید برمی‌گردد و خود کلید روی کیوسک می‌ماند */
+export function posSyncPair(): Promise<PosSyncResult<{ kioskId: string; keyHash: string }>> {
+  return syncCall("/sync/pair", jsonPost({}), 8000);
+}
+
+export function posSyncActivate(input: {
+  supabaseUrl: string;
+  supabaseKey: string;
+}): Promise<PosSyncResult<{ synced: boolean; status: PosSyncStatus }>> {
+  // اولین دور همگام‌سازی همین لحظه اجرا می‌شود و تا ۱۵ ثانیه طول می‌کشد
+  return syncCall("/sync/activate", jsonPost(input), 25000);
+}
+
+export function posSyncDisable(): Promise<PosSyncResult<{ ok: boolean }>> {
+  return syncCall("/sync/disable", jsonPost({}), 8000);
+}
+
 /** بررسی در دسترس بودن سرویس پل و خودِ دستگاه کارت‌خوان */
 export async function posHealth(
   timeoutMs = 5000,

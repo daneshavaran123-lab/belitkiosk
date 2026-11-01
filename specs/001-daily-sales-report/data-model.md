@@ -54,6 +54,7 @@
 | `reason` | text | متن فارسی کوتاه برای مدیر |
 | `invoice_number` | text, nullable | شمارهٔ فاکتوری که قرار بود صادر شود |
 | `rrn` | text, nullable | شمارهٔ مرجع، اگر دستگاه داده |
+| `needs_review` | boolean | پیش‌فرض true. آخرین مقدار کیوسک. false یعنی نگرانی برطرف شده (مثلاً رد دیررس) بی‌آنکه کسی بررسی کرده باشد |
 | `reviewed` | boolean | پیش‌فرض false |
 | `review_note` | text, nullable | حداکثر ۵۰۰ کاراکتر |
 | `reviewed_at` | timestamptz, nullable | |
@@ -91,7 +92,7 @@
 | `ReviewedBy` | **تازه.** «کیوسک» یا ایمیل مدیری که از راه دور بررسی کرده |
 | `ReviewNote` | **تازه.** فقط یادداشت بررسی (اختیاری)، جدا از `Note` که پیام‌های سیستمی دارد. همان است که به‌عنوان `review_note` فرستاده می‌شود |
 
-- **کدام تراکنش‌ها فرستاده می‌شوند**: `NeedsReview || Reviewed`. `MarkReviewed` فعلی هنگام بررسی
+- **کدام تراکنش‌ها فرستاده می‌شوند**: `NeedsReview || Reviewed || LateResponse`؛ رد دیررس نگرانی را برطرف می‌کند (`NeedsReview = false`) بی‌آنکه `Reviewed` شود. `MarkReviewed` فعلی هنگام بررسی
   `NeedsReview = false` می‌گذارد، پس تراکنش بررسی‌شده فقط با `Reviewed` شناخته می‌شود.
 
 `MaskedPan` در دفتر محلی می‌ماند، ولی هرگز در بدنهٔ همگام‌سازی نمی‌آید.

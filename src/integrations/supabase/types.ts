@@ -97,6 +97,89 @@ export type Database = {
         }
         Relationships: []
       }
+      kiosk_devices: {
+        Row: {
+          created_at: string
+          id: string
+          key_hash: string
+          last_sync_at: string | null
+          name: string
+        }
+        Insert: {
+          created_at?: string
+          id: string
+          key_hash: string
+          last_sync_at?: string | null
+          name: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          key_hash?: string
+          last_sync_at?: string | null
+          name?: string
+        }
+        Relationships: []
+      }
+      pos_review_transactions: {
+        Row: {
+          amount_rial: number
+          invoice_number: string | null
+          kiosk_id: string
+          needs_review: boolean
+          occurred_at: string
+          reason: string
+          review_note: string | null
+          reviewed: boolean
+          reviewed_at: string | null
+          reviewed_by: string | null
+          rrn: string | null
+          status: string
+          transaction_id: string
+          updated_at: string
+        }
+        Insert: {
+          amount_rial: number
+          invoice_number?: string | null
+          kiosk_id: string
+          needs_review?: boolean
+          occurred_at: string
+          reason?: string
+          review_note?: string | null
+          reviewed?: boolean
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          rrn?: string | null
+          status: string
+          transaction_id: string
+          updated_at?: string
+        }
+        Update: {
+          amount_rial?: number
+          invoice_number?: string | null
+          kiosk_id?: string
+          needs_review?: boolean
+          occurred_at?: string
+          reason?: string
+          review_note?: string | null
+          reviewed?: boolean
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          rrn?: string | null
+          status?: string
+          transaction_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pos_review_transactions_kiosk_id_fkey"
+            columns: ["kiosk_id"]
+            isOneToOne: false
+            referencedRelation: "kiosk_devices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       products: {
         Row: {
           accent: string
@@ -243,6 +326,43 @@ export type Database = {
       admin_open_mode: { Args: never; Returns: boolean }
       daily_sales_report: { Args: { p_day: string }; Returns: Json }
       claim_admin_and_close_open_mode: { Args: never; Returns: undefined }
+      kiosk_sync_review_transactions: {
+        Args: {
+          p_key: string
+          p_kiosk_id: string
+          p_kiosk_now: string
+          p_rows: Json
+          p_since: string
+        }
+        Returns: Json
+      }
+      register_kiosk: {
+        Args: { p_key_hash: string; p_kiosk_id: string; p_name: string }
+        Returns: undefined
+      }
+      review_pos_transaction: {
+        Args: { p_kiosk_id: string; p_note: string; p_transaction_id: string }
+        Returns: undefined
+      }
+      review_transactions_for_day: {
+        Args: { p_day: string }
+        Returns: {
+          amount_rial: number
+          invoice_number: string | null
+          kiosk_id: string
+          kiosk_name: string
+          needs_review: boolean
+          occurred_at: string
+          reason: string
+          review_note: string | null
+          reviewed: boolean
+          reviewed_at: string | null
+          reviewed_by: string | null
+          rrn: string | null
+          status: string
+          transaction_id: string
+        }[]
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]

@@ -33,6 +33,7 @@
     "reason": "پاسخ دستگاه نامطمئن بود",
     "invoice_number": "INV-1403-000123",
     "rrn": "123456789012",
+    "needs_review": true,
     "reviewed": false,
     "review_note": null,
     "reviewed_at": null
@@ -42,9 +43,13 @@
 
 - **کلیدهای مجاز فقط همین‌ها هستند.** هر کلید دیگری (مثل `masked_pan` یا `card`) نادیده گرفته
   می‌شود و هرگز ذخیره نمی‌شود. سرویس هم آن را نمی‌فرستد. این در تست هر دو طرف بررسی می‌شود.
-- Upsert با کلید `(kiosk_id, transaction_id)`: فیلدهای غیر بررسی (`status`، `reason`، `rrn`، …)
-  به‌روز می‌شوند. اگر ردیف ورودی `reviewed = true` باشد و ردیف سرور هنوز بررسی نشده باشد، بررسی با
-  `reviewed_by = 'کیوسک'` ثبت می‌شود. بررسی هرگز از `true` به `false` برنمی‌گردد.
+- Upsert با کلید `(kiosk_id, transaction_id)`: فیلدهای غیر بررسی (`status`، `reason`، `rrn`،
+  `needs_review`، …) همیشه با آخرین مقدار کیوسک به‌روز می‌شوند. اگر ردیف ورودی `reviewed = true`
+  باشد و ردیف سرور هنوز بررسی نشده باشد، بررسی با `reviewed_by = 'کیوسک'` ثبت می‌شود. بررسی هرگز از
+  `true` به `false` برنمی‌گردد.
+- `needs_review`: آیا هنوز نگرانی کسر وجه هست. وقتی پاسخ دیررسِ «رد» برسد، کیوسک `needs_review = false`
+  می‌فرستد بی‌آنکه کسی «بررسی شد» بزند؛ چنین ردیفی در «بررسی‌نشده» نمی‌ماند و در «بررسی‌شده» هم
+  حساب نمی‌شود.
 - `kiosk_devices.last_sync_at = now()`.
 
 ### Response
@@ -53,6 +58,7 @@
 {
   "server_time": "2026-10-30T09:13:01Z",
   "clock_offset_seconds": 4,
+  "rejected": 0,
   "remote_reviews": [
     {
       "transaction_id": "…",
@@ -67,6 +73,8 @@
 - `remote_reviews`: ردیف‌های همین کیوسک که از راه دور بعد از `p_since` بررسی شده‌اند
   (`reviewed_by <> 'کیوسک'`). سرویس آن‌ها را در دفتر محلی اعمال و `server_time` را به‌عنوان `p_since`
   بعدی ذخیره می‌کند.
+- `rejected`: تعداد ردیف‌هایی که سرور به‌خاطر داده نامعتبر (مبلغ منفی، زمان خراب، …) نپذیرفت. یک ردیف
+  خراب نباید همگام‌سازی بقیه را برای همیشه ببندد؛ سرویس آن را لاگ می‌کند و علامت پیشرفت جلو می‌رود.
 - `clock_offset_seconds`: `now() - p_kiosk_now` به ثانیه (مثبت یعنی ساعت کیوسک عقب است). سرویس آن را
   در `/sync/status` می‌گذارد و پنل اگر قدر مطلقش بیش از ۱۲۰ باشد، هشدار «ساعت کیوسک تنظیم نیست» می‌دهد.
 
@@ -79,9 +87,9 @@
 
 | Method | Path | Body / Response |
 | --- | --- | --- |
-| `POST` | `/sync/pair` | `{}` → `{ kioskId, kioskKey }`. شناسه و کلید تازه می‌سازد و ذخیره می‌کند (همگام‌سازی هنوز خاموش). اگر از قبل باشد، کلید تازه می‌سازد |
-| `POST` | `/sync/activate` | `{ supabaseUrl, supabaseKey, kioskName }` → `{ ok: true }`. فقط `https://…supabase.co` یا دامنهٔ معتبر https؛ `syncEnabled = true` |
-| `GET` | `/sync/status` | `{ enabled, kioskId, lastSyncedAt, lastAttemptAt, lastError, pendingCount, clockOffsetSeconds }`. **بدون** کلید |
+| `POST` | `/sync/pair` | `{}` → `{ ok, kioskId, keyHash }`. شناسه (اگر نبود) و کلید تازه می‌سازد و در `appsettings.json` ذخیره می‌کند؛ همگام‌سازی خاموش می‌شود. **خود کلید هرگز برنمی‌گردد**؛ فقط `keyHash = sha256(کلید)` به‌صورت هگز کوچک برای `register_kiosk` |
+| `POST` | `/sync/activate` | `{ supabaseUrl, supabaseKey }` → `{ ok, synced, status }`. فقط `https://….supabase.co`؛ بدون جفت‌بودن 409. `syncEnabled = true` و اولین دور همان لحظه اجرا می‌شود (`synced` نتیجهٔ آن است) |
+| `GET` | `/sync/status` | `{ enabled, paired, kioskId, lastSyncedAt, lastAttemptAt, lastError, pendingCount, clockOffsetSeconds, lastRejected }`. **بدون** کلید |
 | `POST` | `/sync/disable` | `{}` → `{ ok: true }` |
 
 - `/config` همچنان `kioskSyncKey` را نه برمی‌گرداند و نه می‌پذیرد (مثل `accessToken`).

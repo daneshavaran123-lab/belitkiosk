@@ -43,6 +43,13 @@ namespace PosBridge
         public string CreatedAt = "";
         public string SentAt = "";
         public string CompletedAt = "";
+        /// <summary>آخرین تغییر (UTC)؛ ملاک «چه چیزی باید به سرور فرستاده شود»</summary>
+        public string UpdatedAt = "";
+        public string ReviewedAt = "";
+        /// <summary>«کیوسک» یا ایمیل مدیری که از راه دور بررسی کرده</summary>
+        public string ReviewedBy = "";
+        /// <summary>فقط یادداشت بررسی؛ جدا از Note که پیام‌های سیستمی دارد</summary>
+        public string ReviewNote = "";
 
         public bool IsFinal
         {
@@ -75,7 +82,9 @@ namespace PosBridge
                 { "lateResponse", LateResponse }, { "responseCode", ResponseCode }, { "message", Message },
                 { "rrn", Rrn }, { "stan", Stan }, { "maskedPan", MaskedPan }, { "terminalId", TerminalId },
                 { "merchantId", MerchantId }, { "deviceDateTime", DeviceDateTime }, { "via", Via },
-                { "note", Note }, { "createdAt", CreatedAt }, { "sentAt", SentAt }, { "completedAt", CompletedAt }
+                { "note", Note }, { "createdAt", CreatedAt }, { "sentAt", SentAt }, { "completedAt", CompletedAt },
+                { "updatedAt", UpdatedAt }, { "reviewedAt", ReviewedAt }, { "reviewedBy", ReviewedBy },
+                { "reviewNote", ReviewNote }
             };
         }
 
@@ -84,15 +93,20 @@ namespace PosBridge
             Func<string, string> s = k => r.ContainsKey(k) && r[k] != null ? Convert.ToString(r[k], CultureInfo.InvariantCulture) : "";
             Func<string, bool> b = k => r.ContainsKey(k) && r[k] is bool && (bool)r[k];
             Func<string, long> l = k => r.ContainsKey(k) && r[k] != null ? Convert.ToInt64(r[k], CultureInfo.InvariantCulture) : 0;
-            return new PosTransaction
+            var t = new PosTransaction
             {
                 Id = s("id"), MessageId = l("messageId"), InvoiceNumber = s("invoiceNumber"), PosInvoice = s("posInvoice"),
                 AmountRial = l("amountRial"), Status = s("status"), NeedsReview = b("needsReview"), Reviewed = b("reviewed"),
                 CancelRequested = b("cancelRequested"), LateResponse = b("lateResponse"), ResponseCode = s("responseCode"),
                 Message = s("message"), Rrn = s("rrn"), Stan = s("stan"), MaskedPan = s("maskedPan"),
                 TerminalId = s("terminalId"), MerchantId = s("merchantId"), DeviceDateTime = s("deviceDateTime"),
-                Via = s("via"), Note = s("note"), CreatedAt = s("createdAt"), SentAt = s("sentAt"), CompletedAt = s("completedAt")
+                Via = s("via"), Note = s("note"), CreatedAt = s("createdAt"), SentAt = s("sentAt"), CompletedAt = s("completedAt"),
+                UpdatedAt = s("updatedAt"), ReviewedAt = s("reviewedAt"), ReviewedBy = s("reviewedBy"), ReviewNote = s("reviewNote")
             };
+            // رکوردهای قدیمی «آخرین تغییر» ندارند؛ نزدیک‌ترین زمان شناخته‌شده جایش می‌نشیند تا همگام‌سازی نیفتند
+            if (string.IsNullOrEmpty(t.UpdatedAt))
+                t.UpdatedAt = !string.IsNullOrEmpty(t.CompletedAt) ? t.CompletedAt : !string.IsNullOrEmpty(t.SentAt) ? t.SentAt : t.CreatedAt;
+            return t;
         }
 
         /// <summary>خروجی HTTP برای کیوسک (بدون هیچ دادهٔ حساس؛ کارت ماسک‌شده است)</summary>
@@ -193,6 +207,7 @@ namespace PosBridge
         {
             lock (_lock)
             {
+                t.UpdatedAt = PosTransaction.Now();
                 var copy = t.Clone();
                 if (!_byId.ContainsKey(copy.Id)) _order.Add(copy.Id);
                 _byId[copy.Id] = copy;
@@ -225,6 +240,85 @@ namespace PosBridge
                 for (var i = _order.Count - 1; i >= 0 && list.Count < limit; i--) list.Add(_byId[_order[i]].Clone());
                 return list;
             }
+        }
+
+        /// <summary>
+        /// تراکنش‌هایی که باید به سرور فرستاده شوند: هر چه نیازمند بررسی بوده (هنوز یا پس از «بررسی شد»)
+        /// و پاسخ دیررسی که نگرانی را برطرف کرده. تراکنش موفق و لغو عادی هرگز نمی‌آید.
+        /// شرط «بزرگ‌تر یا مساوی» است تا ردیفی که هم‌زمان با آخرین ارسال عوض شده جا نماند؛ ثبت در سرور
+        /// تکرارپذیر است. خروجی به ترتیب UpdatedAt.
+        /// </summary>
+        public List<PosTransaction> ChangedSince(string isoUtc)
+        {
+            DateTime since;
+            var hasSince = TryParseUtc(isoUtc, out since);
+            var list = new List<KeyValuePair<DateTime, PosTransaction>>();
+            lock (_lock)
+            {
+                foreach (var id in _order)
+                {
+                    var t = _byId[id];
+                    if (!(t.NeedsReview || t.Reviewed || t.LateResponse)) continue;
+                    DateTime at;
+                    if (!TryParseUtc(t.UpdatedAt, out at)) at = DateTime.MinValue;
+                    if (hasSince && at < since) continue;
+                    list.Add(new KeyValuePair<DateTime, PosTransaction>(at, t.Clone()));
+                }
+            }
+            list.Sort((a, b) => a.Key.CompareTo(b.Key));
+            var result = new List<PosTransaction>(list.Count);
+            foreach (var kv in list) result.Add(kv.Value);
+            return result;
+        }
+
+        /// <summary>
+        /// «بررسی شد» روی کیوسک. یک‌طرفه است: تراکنش بررسی‌شده دوباره بررسی نمی‌شود (true، بدون تغییر).
+        /// false یعنی چنین تراکنشی نیست.
+        /// </summary>
+        public bool MarkReviewed(string id, string note, string reviewedBy, string reviewedAt)
+        {
+            bool found;
+            ApplyReview(id, note, reviewedBy, reviewedAt, true, out found);
+            return found;
+        }
+
+        /// <summary>
+        /// «بررسی شد» که مدیر از راه دور زده. فقط وقتی true که واقعاً اعمال شد (تراکنش هست و هنوز
+        /// بررسی نشده بود). یادداشت در ReviewNote می‌نشیند، نه Note.
+        /// </summary>
+        public bool ApplyRemoteReview(string id, string note, string reviewedAt, string reviewedBy)
+        {
+            bool found;
+            return ApplyReview(id, note, reviewedBy, reviewedAt, false, out found);
+        }
+
+        private bool ApplyReview(string id, string note, string reviewedBy, string reviewedAt, bool local, out bool found)
+        {
+            lock (_lock)
+            {
+                PosTransaction t;
+                found = id != null && _byId.TryGetValue(id, out t);
+                if (!found) return false;
+                t = _byId[id];
+                if (t.Reviewed) return false;
+                t.Reviewed = true;
+                t.NeedsReview = false;
+                t.ReviewedBy = reviewedBy ?? "";
+                t.ReviewedAt = string.IsNullOrEmpty(reviewedAt) ? PosTransaction.Now() : reviewedAt;
+                t.ReviewNote = note ?? "";
+                // نمایش فعلی پنل کیوسک «بررسی: …» را در Note می‌خواند
+                if (local && !string.IsNullOrEmpty(note))
+                    t.Note = (string.IsNullOrEmpty(t.Note) ? "" : t.Note + " | ") + "بررسی: " + note;
+                Save(t);
+                return true;
+            }
+        }
+
+        private static bool TryParseUtc(string iso, out DateTime utc)
+        {
+            utc = DateTime.MinValue;
+            return !string.IsNullOrEmpty(iso) && DateTime.TryParse(iso, CultureInfo.InvariantCulture,
+                DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal, out utc);
         }
 
         private void Load()
