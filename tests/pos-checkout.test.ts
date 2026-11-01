@@ -334,19 +334,25 @@ const items: InvoiceLine[] = [
   { name: "بلیط عادی", quantity: 2, unitPrice: 100000, discountPercent: 0, totalPrice: 200000 },
 ];
 
-function makeDb(fail?: "invoices" | "invoice_items"): { db: InvoiceDb; calls: string[] } {
+function makeDb(fail?: "invoices" | "invoice_items"): {
+  db: InvoiceDb;
+  calls: string[];
+  inserted: Record<string, unknown>;
+} {
   const calls: string[] = [];
+  const inserted: Record<string, unknown> = {};
   const db: InvoiceDb = {
     from(table: string) {
       return {
-        async insert() {
+        async insert(rows: unknown) {
           calls.push(table);
+          inserted[table] = rows;
           return fail === table ? { error: { message: "RLS denied" } } : { error: null };
         },
       };
     },
   };
-  return { db, calls };
+  return { db, calls, inserted };
 }
 
 describe("سلامت سرویس پل کارت‌خوان", () => {
@@ -941,5 +947,24 @@ describe("گزارش پشتیبانی با RTT و منشأ خطا", () => {
     expect(sameSubnet("192.168.16.5", "192.168.16.87")).toBe(true);
     expect(isApipa("169.254.78.62")).toBe(true);
     expect(isApipa("10.62.158.98")).toBe(false);
+  });
+});
+
+describe("نوع آیتم در ردیف‌های فاکتور (گزارش روزانه)", () => {
+  it("نوع آیتم و شناسهٔ نوع بلیط همراه ردیف ذخیره می‌شود و ردیف قدیمی null می‌گیرد", async () => {
+    const { db, inserted } = makeDb();
+    const res = await saveInvoice(db, {
+      invoiceNumber: "INV-T1",
+      total: 300000,
+      method: "card",
+      items: [
+        { ...items[0], itemType: "ticket", referenceId: 2 },
+        { name: "کتاب", quantity: 1, unitPrice: 100000, discountPercent: 0, totalPrice: 100000 },
+      ],
+    });
+    expect(res.ok).toBe(true);
+    const rows = inserted["invoice_items"] as Array<Record<string, unknown>>;
+    expect(rows[0]).toMatchObject({ item_type: "ticket", reference_id: 2 });
+    expect(rows[1]).toMatchObject({ item_type: null, reference_id: null });
   });
 });

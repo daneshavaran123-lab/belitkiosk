@@ -96,7 +96,7 @@ description: "Task list for the daily sales report (001)"
 
 ### Tests for User Story 1
 
-- [ ] T006 [P] [US1] Create `supabase/tests/daily_report.sql` (سناریوها در `DO` با `RAISE EXCEPTION`):
+- [X] T006 [P] [US1] Create `supabase/tests/daily_report.sql` (سناریوها در `DO` با `RAISE EXCEPTION`):
   - **دادهٔ نمونه**: یک کاربر مدیر در `auth.users` و `user_roles`، و `app_settings.admin_open = false`.
   - **جمع‌ها**: ۳ فاکتور کارتی (۱۰۰٬۰۰۰، ۲۰۰٬۰۰۰، ۳۰۰٬۰۰۰) و ۲ نقدی (۵۰٬۰۰۰) با `created_at` امروز تهران. با نقش مدیر (`SET LOCAL ROLE authenticated` و `request.jwt.claim.sub`)، `daily_sales_report` باید `card.total=600000`، `cash.total=100000`، `total=700000` و `card.count=3` بدهد.
   - **بلیط‌ها**: ردیف `item_type='ticket'` با `reference_id` بلیط عادی و `quantity=2` و ردیف گروهی با `quantity=10` نوع راهنما → `tickets.total=12` و `by_type` به ترتیب `normal` و سپس `guided`.
@@ -107,19 +107,19 @@ description: "Task list for the daily sales report (001)"
   - **CHECK**: درج `item_type='ticket'` بدون `reference_id` خطا بدهد.
   - **کارایی (SC-001)**: ۱٬۰۰۰ فاکتور با ۲ ردیف برای هر کدام در یک روز بسازید. زمان یک فراخوانی `daily_sales_report` (با `clock_timestamp()` پیش و پس از آن) باید کمتر از ۵۰۰ میلی‌ثانیه باشد. این سقف محلی است و برای ۳ ثانیهٔ کل مسیر حاشیه می‌گذارد.
   - **فقط خواندنی (FR-011)**: در `pg_proc`، تابع `provolatile = 's'` (STABLE) و `prosecdef = false` (SECURITY INVOKER) داشته باشد.
-- [ ] T007 [P] [US1] Add tests to `tests/daily-report.test.ts` برای `fetchDailyReport` با `supabase.rpc` جعلی:
+- [X] T007 [P] [US1] Add tests to `tests/daily-report.test.ts` برای `fetchDailyReport` با `supabase.rpc` جعلی:
   - پاسخ موفق به `DailyReport` نگاشت می‌شود.
   - خطای `PGRST202` → `{ kind: "not-enabled" }`.
   - `22023` → `{ kind: "future" }`.
   - خطای شبکه → `{ kind: "network" }`.
   - هیچ حالت خطایی عدد صفر برنمی‌گرداند (FR-010).
-- [ ] T008 [P] [US1] Add a test to `tests/pos-checkout.test.ts`: `saveInvoice` برای ردیف با
+- [X] T008 [P] [US1] Add a test to `tests/pos-checkout.test.ts`: `saveInvoice` برای ردیف با
   `itemType: "ticket", referenceId: 2` در `invoice_items` مقدار `item_type: "ticket", reference_id: 2`
   و برای ردیف بدون این‌ها `null` می‌فرستد.
 
 ### Implementation for User Story 1
 
-- [ ] T009 [US1] Create `supabase/migrations/20261101000000_daily_sales_report.sql`:
+- [X] T009 [US1] Create `supabase/migrations/20261101000000_daily_sales_report.sql`:
   - **ستون‌های `invoice_items`**:
     - `item_type text NULL` با CHECK «یکی از `ticket`، `product`، `event`، `membership`، `donation`».
     - `reference_id bigint NULL`، **بدون FK**.
@@ -136,19 +136,19 @@ description: "Task list for the daily sales report (001)"
     - `is_today` و `generated_at`.
     - ساختار دقیق خروجی در `specs/001-daily-sales-report/contracts/daily-sales-report.md`.
   - `REVOKE ALL ... FROM PUBLIC; GRANT EXECUTE ... TO anon, authenticated`.
-- [ ] T010 [P] [US1] Update `src/integrations/supabase/types.ts`:
+- [X] T010 [P] [US1] Update `src/integrations/supabase/types.ts`:
   - در `invoice_items`: `item_type: string | null` و `reference_id: number | null` در Row، و اختیاری در Insert و Update.
   - در `Functions`: `daily_sales_report: { Args: { p_day: string }; Returns: Json }`.
-- [ ] T011 [P] [US1] Update `src/lib/invoice.ts`:
+- [X] T011 [P] [US1] Update `src/lib/invoice.ts`:
   - به `InvoiceLine` فیلدهای اختیاری `itemType?: "ticket" | "product" | "event" | "membership" | "donation"` و `referenceId?: number` اضافه شود.
   - `saveInvoice` آن‌ها را به‌صورت `item_type: i.itemType ?? null` و `reference_id: i.referenceId ?? null` در ردیف‌های `invoice_items` بفرستد.
-- [ ] T012 [US1] Update `toLines()` in `src/routes/cart.tsx` تا `itemType: i.type` و
+- [X] T012 [US1] Update `toLines()` in `src/routes/cart.tsx` تا `itemType: i.type` و
   `referenceId: i.referenceId` را هم برگرداند (پس از T011).
-- [ ] T013 [US1] Add to `src/lib/daily-report.ts`:
+- [X] T013 [US1] Add to `src/lib/daily-report.ts`:
   - تایپ `DailyReport` مطابق قرارداد.
   - `fetchDailyReport(day, client = supabase)`: `client.rpc("daily_sales_report", { p_day: day })`.
   - نتیجه: `{ ok: true, report }` یا `{ ok: false, kind: "not-enabled" | "future" | "network" | "error", message }` (پس از T010).
-- [ ] T014 [US1] Create `src/routes/admin.reports.tsx` (`createFileRoute("/admin/reports")`):
+- [X] T014 [US1] Create `src/routes/admin.reports.tsx` (`createFileRoute("/admin/reports")`):
   - **پارامتر**: `validateSearch` با `day?: string` (فقط `^\d{4}-\d{2}-\d{2}$`؛ پیش‌فرض `tehranToday()`).
   - **انتخاب روز**: `DayPicker` از `react-day-picker/persian` با `locale={faIR}` و `dir="rtl"`. روزهای بعد از `tehranToday()` با `disabled`. دکمه‌های «امروز» و «دیروز».
   - **سرتیتر**: «گزارش فروش — {formatJalaliLong(day)}». برای امروز «تا ساعت {formatTehranTime(generated_at)}» و دکمهٔ «به‌روزرسانی».
@@ -157,7 +157,7 @@ description: "Task list for the daily sales report (001)"
   - **بخش بررسی**: وقتی `review === null` بنویسد «در دسترس نیست — کیوسک هنوز به گزارش وصل نشده».
   - **حالت‌ها**: loading، «در این روز فروشی ثبت نشده»، not-enabled («گزارش روزانه هنوز روی دیتابیس فعال نشده است»)، network (با «تلاش دوباره»)، و «دسترسی ندارید» (اگر `has_role` و `admin_open_mode` هر دو false باشند؛ معمولاً `AdminLayout` زودتر جلویش را می‌گیرد).
   - مطابق `contracts/report-ui.md`. هیچ‌جا صفر جای دادهٔ نیامده نمی‌نشیند.
-- [ ] T015 [US1] Add NAV entry in `src/routes/admin.tsx`:
+- [X] T015 [US1] Add NAV entry in `src/routes/admin.tsx`:
   `{ to: "/admin/reports", label: "گزارش روزانه", icon: FileChartColumn, exact: false }` بعد از
   «فاکتورها»، و مسیر `/admin/reports` را به `src/routeTree.gen.ts` اضافه
   کنید (فرزند `AdminRoute` مثل `/admin/invoices`).

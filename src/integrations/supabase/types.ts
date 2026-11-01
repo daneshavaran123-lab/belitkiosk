@@ -19,8 +19,10 @@ export type Database = {
           discount_percent: number
           id: string
           invoice_id: string
+          item_type: string | null
           name: string
           quantity: number
+          reference_id: number | null
           total_price: number
           unit_price: number
         }
@@ -28,8 +30,10 @@ export type Database = {
           discount_percent?: number
           id?: string
           invoice_id: string
+          item_type?: string | null
           name: string
           quantity: number
+          reference_id?: number | null
           total_price: number
           unit_price: number
         }
@@ -37,8 +41,10 @@ export type Database = {
           discount_percent?: number
           id?: string
           invoice_id?: string
+          item_type?: string | null
           name?: string
           quantity?: number
+          reference_id?: number | null
           total_price?: number
           unit_price?: number
         }
@@ -235,6 +241,7 @@ export type Database = {
     }
     Functions: {
       admin_open_mode: { Args: never; Returns: boolean }
+      daily_sales_report: { Args: { p_day: string }; Returns: Json }
       claim_admin_and_close_open_mode: { Args: never; Returns: undefined }
       has_role: {
         Args: {

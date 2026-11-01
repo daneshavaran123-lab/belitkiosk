@@ -18,6 +18,7 @@ import {
   MessageSquare,
   CreditCard,
   ShieldAlert,
+  FileChartColumn,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { AdminAccessContext, fetchAdminOpenMode } from "@/lib/admin-access";
@@ -34,6 +35,7 @@ const NAV = [
   { to: "/admin/tickets", label: "مدیریت بلیط‌ها", icon: Ticket, exact: false },
   { to: "/admin/products", label: "مدیریت محصولات", icon: Package, exact: false },
   { to: "/admin/invoices", label: "فاکتورها", icon: Receipt, exact: false },
+  { to: "/admin/reports", label: "گزارش روزانه", icon: FileChartColumn, exact: false },
   { to: "/admin/surveys", label: "نظرسنجی‌ها", icon: MessageSquare, exact: false },
   { to: "/admin/pos", label: "کارت‌خوان", icon: CreditCard, exact: false },
 ] as const;
