@@ -351,26 +351,26 @@ description: "Task list for the daily sales report (001)"
 
 **Purpose**: مستندات، بررسی امنیت و اعتبارسنجی نهایی
 
-- [ ] T036 [P] Document the report in `README.md`:
+- [X] T036 [P] Document the report in `README.md`:
   - بخش «گزارش فروش روزانه»: کجاست، چه چیزی نشان می‌دهد، و ترتیب اجرای دو migration در Lovable (پس از `20261029100000_admin_open_mode.sql`).
   - جدول RLS بخش ۵ با دو جدول تازه.
-- [ ] T037 [P] Document sync in `pos-bridge/README.md`:
+- [X] T037 [P] Document sync in `pos-bridge/README.md`:
   - کلیدهای `sync*`، `kioskId` و `kioskSyncKey` (راز).
   - مسیرهای `/sync/*`.
   - اینکه شمارهٔ کارت فرستاده نمی‌شود.
   - عیب‌یابی «آخرین ارسال» قدیمی.
-- [ ] T038 [P] Add the pairing step to `docs/WINDOWS-APP.md` و `installers/RELEASE-NOTES.md`: «یک
+- [X] T038 [P] Add the pairing step to `docs/WINDOWS-APP.md` و `installers/RELEASE-NOTES.md`: «یک
   بار در پنل → کارت‌خوان → اتصال این کیوسک به گزارش روزانه».
-- [ ] T039 Security pass on `pos-bridge/ReviewSync.cs`، `pos-bridge/appsettings.json` و `src/lib/pos.ts`:
+- [X] T039 Security pass on `pos-bridge/ReviewSync.cs`، `pos-bridge/appsettings.json` و `src/lib/pos.ts`:
   - `grep -rn "MaskedPan\|masked_pan" pos-bridge/ReviewSync.cs supabase/migrations/20261101000100_kiosk_review_sync.sql` باید خالی یا فقط در کامنت «فرستاده نمی‌شود» باشد.
   - `kioskSyncKey` در `pos-bridge/appsettings.json` خالی باشد.
   - کلید در `/config`، لاگ‌ها و `supportReportText` نیاید.
-- [ ] T040 Run all checks (`package.json` scripts، `pos-bridge/tests/PosBridge.Tests`، `supabase/tests/run.sh`) and fix failures:
+- [X] T040 Run all checks (`package.json` scripts، `pos-bridge/tests/PosBridge.Tests`، `supabase/tests/run.sh`) and fix failures:
   - `bun run lint`، `bunx tsc --noEmit`، `bun run test:run`.
   - `dotnet test pos-bridge/tests/PosBridge.Tests`.
   - `bash supabase/tests/run.sh`.
   - `NITRO_PRESET=node_server npx vite build`، و برگرداندن تغییرات ترتیبی `src/routeTree.gen.ts`.
-- [ ] T041 Run `specs/001-daily-sales-report/quickstart.md` §۱ تا §۳ (با شبیه‌ساز) و نتیجه را در شرح
+- [X] T041 Run `specs/001-daily-sales-report/quickstart.md` §۱ تا §۳ (با شبیه‌ساز) و نتیجه را در شرح
   PR بنویسید. آنچه روی دستگاه یا ویندوز واقعی تست نشده صریحاً ذکر شود (اصل V).
 
 ---

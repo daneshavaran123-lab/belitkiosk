@@ -225,7 +225,7 @@ namespace PosBridge.Tests
             var t = Uncertain("a");
             j.Save(t);
             var first = j.Get("a").UpdatedAt;
-            System.Threading.Thread.Sleep(15);
+            System.Threading.Thread.Sleep(50);
             j.Save(t);
             Assert.True(string.CompareOrdinal(j.Get("a").UpdatedAt, first) > 0);
         }
@@ -254,7 +254,7 @@ namespace PosBridge.Tests
             var j = new TransactionJournal(_path);
             j.Save(Uncertain("a"));
             var before = j.Get("a").UpdatedAt;
-            System.Threading.Thread.Sleep(15);
+            System.Threading.Thread.Sleep(50);
             Assert.True(j.MarkReviewed("a", "", "کیوسک", null));
 
             var changed = j.ChangedSince(before);
@@ -288,7 +288,7 @@ namespace PosBridge.Tests
             j.Save(Uncertain("a"));
             var stamp = j.Get("a").UpdatedAt;
             Assert.Single(j.ChangedSince(stamp));                 // >= : ردیف هم‌زمان با علامت جا نمی‌ماند
-            System.Threading.Thread.Sleep(15);
+            System.Threading.Thread.Sleep(50);
             Assert.Empty(j.ChangedSince(PosTransaction.Now()));
         }
 

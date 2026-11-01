@@ -191,6 +191,8 @@ erDiagram
 | `invoices` / `invoice_items` | INSERT | INSERT | SELECT ALL | مشتری فقط می‌سازد |
 | `survey_responses` | INSERT | INSERT | SELECT / DELETE | ناشناس اجازهٔ ثبت دارد |
 | `user_roles` | — | SELECT خودش | ALL | چک با `has_role()` SECURITY DEFINER |
+| `kiosk_devices` | — | — | SELECT (بدون `key_hash`) | نوشتن فقط با `register_kiosk`؛ ستون `key_hash` برای هیچ نقشی خواندنی نیست |
+| `pos_review_transactions` | — | — | SELECT | نوشتن فقط با توابع (`kiosk_sync_review_transactions` با کلید کیوسک، `review_pos_transaction` برای مدیر)؛ ستون شمارهٔ کارت ندارد |
 
 > **قانون طلایی:** هر `CREATE TABLE public.x` باید در همان migration با `GRANT`، `ENABLE RLS` و `CREATE POLICY` همراه باشد — وگرنه PostgREST خطای permission برمی‌گرداند.
 
@@ -310,6 +312,8 @@ flowchart LR
   Dash --> T[/admin/tickets — CRUD/]
   Dash --> P[/admin/products — CRUD + filter section/]
   Dash --> I[/admin/invoices — read-only/]
+  Dash --> R[/admin/reports — گزارش فروش روزانه + چاپ A4/]
+  R --> RV[/admin/reports/review — تراکنش‌های نیازمند بررسی/]
   Dash --> S[/admin/surveys — آمار + پاسخ‌ها/]
   Dash --> CP[کارت تغییر رمز]
 ```
@@ -328,6 +332,9 @@ flowchart LR
 | `/admin/login` | Public | ورود ادمین |
 | `/admin/reset-password` | Public | بازنشانی رمز از لینک ایمیل |
 | `/admin` | Layout (protected) | گارد `has_role('admin')` |
+| `/admin/reports` | Admin | گزارش فروش روزانه (`?day=YYYY-MM-DD` میلادی؛ پیش‌فرض امروزِ تهران) و چاپ A4 |
+| `/admin/reports/review` | Admin | تراکنش‌های کارتی نیازمند بررسیِ یک روز و «بررسی شد» |
+| `/download` | Public | دانلود نسخهٔ ویندوزی |
 | `/admin/` | Admin | داشبورد + تغییر رمز |
 | `/admin/tickets` | Admin | CRUD بلیط‌ها |
 | `/admin/products` | Admin | CRUD محصولات همهٔ بخش‌ها |
@@ -396,11 +403,39 @@ VITE_SUPABASE_PROJECT_ID=...
 
 ---
 
+### گزارش فروش روزانه (`/admin/reports`)
+
+مدیر یک روز را با تقویم شمسی انتخاب می‌کند و می‌بیند: جمع فروش کارتی و نقدی و کل، تعداد فاکتورها،
+تعداد بلیط‌ها به تفکیک نوع، و تراکنش‌های کارتی «نیازمند بررسی» (بررسی‌نشده / بررسی‌شده). «چاپ گزارش»
+همان را روی یک برگهٔ A4 با سربرگ موزه و جای امضای تحویل‌دهنده و تحویل‌گیرنده چاپ می‌کند.
+
+- «روز» همیشه از ۰۰:۰۰ تا ۲۳:۵۹:۵۹ **به وقت تهران** است، مستقل از ساعت دستگاه.
+- گزارش را تابع `daily_sales_report(p_day)` در خود دیتابیس می‌سازد (`SECURITY INVOKER`، فقط خواندنی).
+- از این پس هر ردیف فاکتور `item_type` و (برای بلیط) `reference_id` را ذخیره می‌کند؛ فروش‌های
+  قدیمی بدون نوع در شمارش بلیط «نامشخص» می‌آیند.
+- مبلغ تراکنش‌های نیازمند بررسی در جمع فروش **نمی‌آید**.
+- اگر migration اجرا نشده باشد، صفحه «گزارش روزانه هنوز روی دیتابیس فعال نشده است» می‌گوید و هیچ
+  عددی نشان نمی‌دهد (صفر جای داده نمی‌نشیند).
+
+**ترتیب اجرای migrationها در Lovable** (هر کدام فقط یک بار، به همین ترتیب):
+
+1. `20261029100000_admin_open_mode.sql` (اگر پنل بدون رمز لازم است)
+2. `20261101000000_daily_sales_report.sql` (گزارش فروش و بلیط‌ها)
+3. `20261101000100_kiosk_review_sync.sql` (بخش «نیازمند بررسی» و همگام‌سازی کیوسک)
+
+**اتصال کیوسک به گزارش** (یک بار، روی خود کیوسک): پنل ← کارت‌خوان ← «اتصال این کیوسک به گزارش
+روزانه». سرویس کارت‌خوان شناسه و کلید اختصاصی می‌سازد و فقط **هش** کلید در سرور ثبت می‌شود؛ بعد
+تراکنش‌های نیازمند بررسی هر دقیقه (بدون شمارهٔ کارت) به سرور می‌روند و «بررسی شد»هایی که مدیر از
+راه دور می‌زند به کیوسک برمی‌گردند. صفحهٔ کارت‌خوان با رمز حساب مدیر قفل است؛ پس اگر پنل هنوز بدون
+رمز است، اول از داشبورد برایش رمز بگذارید.
+
 ## 12. Database Migrations
 
 - **هرگز** SQL را دستی روی دیتابیس نزنید — فقط از طریق ابزار migration Lovable.
 - هر migration باید atomic باشد: `CREATE TABLE → GRANT → ENABLE RLS → CREATE POLICY`.
 - فایل `src/integrations/supabase/types.ts` پس از هر migration خودکار تولید می‌شود.
+- پیش از ادغام، migrationها را روی یک PostgreSQL موقت اجرا و سیاست‌هایشان را آزمایش کنید:
+  `bash supabase/tests/run.sh` (در CI هم اجرا می‌شود). سناریوها در `supabase/tests/*.sql`.
 
 مثال قالب:
 

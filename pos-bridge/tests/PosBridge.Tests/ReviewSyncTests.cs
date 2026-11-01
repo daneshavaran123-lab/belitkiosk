@@ -219,11 +219,11 @@ namespace PosBridge.Tests
         public void LaterRunsSendOnlyWhatChanged()
         {
             Flag("a");
-            System.Threading.Thread.Sleep(20);
+            System.Threading.Thread.Sleep(50);
             Flag("b");
             var sync = Sync();
             sync.RunOnce();
-            System.Threading.Thread.Sleep(20);
+            System.Threading.Thread.Sleep(50);
             Flag("c");
             sync.RunOnce();
 
