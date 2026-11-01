@@ -1,9 +1,20 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useCallback, useEffect, useState } from "react";
-import { CalendarDays, CreditCard, Banknote, Wallet, RefreshCw, Ticket } from "lucide-react";
+import { flushSync } from "react-dom";
+import {
+  CalendarDays,
+  CreditCard,
+  Banknote,
+  Wallet,
+  RefreshCw,
+  Ticket,
+  Printer,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { JalaliDayPicker } from "@/components/JalaliDayPicker";
+import { DailyReportPrint } from "@/components/DailyReportPrint";
+import { useAdminAccess } from "@/lib/admin-access";
 import {
   addDays,
   fetchDailyReport,
@@ -131,6 +142,16 @@ function ReportFailure({ message, onRetry }: { message: string; onRetry: () => v
 
 function ReportBody({ report, onRefresh }: { report: DailyReport; onRefresh: () => void }) {
   const empty = report.sales.invoice_count === 0;
+  const { email } = useAdminAccess();
+  const [printedAt, setPrintedAt] = useState(() => new Date().toISOString());
+
+  // زمان چاپ همان لحظهٔ چاپ ثبت می‌شود، چه با دکمه چه با Ctrl+P
+  useEffect(() => {
+    const stamp = () => flushSync(() => setPrintedAt(new Date().toISOString()));
+    window.addEventListener("beforeprint", stamp);
+    return () => window.removeEventListener("beforeprint", stamp);
+  }, []);
+
   const cards = [
     {
       label: "فروش کارتی",
@@ -169,7 +190,19 @@ function ReportBody({ report, onRefresh }: { report: DailyReport; onRefresh: () 
             </Button>
           </>
         )}
+        <Button
+          variant="secondary"
+          className="mr-auto rounded-xl gap-2 h-11 font-bold"
+          onClick={() => window.print()}
+        >
+          <Printer className="w-4 h-4" /> چاپ گزارش
+        </Button>
       </div>
+      <DailyReportPrint
+        report={report}
+        printedAt={printedAt}
+        printedBy={email || "حالت بدون رمز"}
+      />
 
       {empty && (
         <p className="rounded-xl border border-primary/20 bg-black/30 p-4 text-bronze-light/80">

@@ -325,20 +325,20 @@ description: "Task list for the daily sales report (001)"
 
 ### Implementation for User Story 3
 
-- [ ] T032 [P] [US3] Create `src/components/DailyReportPrint.tsx`:
+- [X] T032 [P] [US3] Create `src/components/DailyReportPrint.tsx`:
   - همان شیء `DailyReport` و `printedBy` را می‌گیرد و در `<section id="daily-report-print" dir="rtl">` رندر می‌کند.
   - **سربرگ**: «موزهٔ افتخارات کشتی ایران — گزارش فروش روزانه»، `formatJalaliLong(day)`، «چاپ: <تاریخ و ساعت تهران>»، «چاپ‌کننده: {printedBy}».
   - **بدنه**: جدول‌های فروش، بلیط و بررسی، بدون لینک.
   - **پاورقی**: دو کادر امضا «تحویل‌دهنده» و «تحویل‌گیرنده».
   - متن مشکی روی سفید.
-- [ ] T033 [P] [US3] Add print rules to `src/styles.css`:
+- [X] T033 [P] [US3] Add print rules to `src/styles.css`:
   - `@media print { @page { size: A4 portrait; margin: 15mm } }`.
   - پنهان کردن همهٔ عناصر به‌جز `#daily-report-print` و فرزندانش (`body * { visibility: hidden }` و `#daily-report-print, #daily-report-print * { visibility: visible }` با موقعیت ثابت بالا).
   - `#daily-report-print` روی صفحه با `display: none` و در چاپ با `display: block`.
-- [ ] T034 [US3] Wire printing in `src/routes/admin.reports.tsx` (پس از T032، T033):
+- [X] T034 [US3] Wire printing in `src/routes/admin.reports.tsx` (پس از T032، T033):
   - `<DailyReportPrint report={report} printedBy={email || "حالت بدون رمز"} />`، با ایمیل از `useAdminAccess()`.
   - دکمهٔ «چاپ گزارش» → `window.print()`، غیرفعال در حالت loading یا خطا.
-- [ ] T035 [US3] Verify print layout of `src/components/DailyReportPrint.tsx` with Playwright:
+- [X] T035 [US3] Verify print layout of `src/components/DailyReportPrint.tsx` with Playwright:
   - `page.emulateMedia({ media: "print" })` و `page.pdf({ format: "A4" })` روی گزارش نمونه با ۳ نوع بلیط.
   - PDF دقیقاً یک صفحه باشد و متن «تحویل‌گیرنده» و جمع کل را داشته باشد.
   - اسکریپت در scratchpad اجرا می‌شود و commit نمی‌شود. نتیجه در شرح PR ثبت شود.
