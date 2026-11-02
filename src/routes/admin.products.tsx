@@ -274,7 +274,7 @@ function AdminProductsPage() {
                   <select
                     value={form.section}
                     onChange={(e) => setForm({ ...form, section: e.target.value })}
-                    className="w-full h-10 rounded-md bg-black/40 border border-primary/30 text-white px-3"
+                    className="w-full h-10 rounded-md glass-well text-white px-3"
                   >
                     {SECTIONS.map((s) => (
                       <option key={s.value} value={s.value}>

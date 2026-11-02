@@ -205,9 +205,7 @@ function ReportBody({ report, onRefresh }: { report: DailyReport; onRefresh: () 
       />
 
       {empty && (
-        <p className="rounded-xl border border-primary/20 bg-black/30 p-4 text-bronze-light/80">
-          در این روز فروشی ثبت نشده
-        </p>
+        <p className="rounded-xl border  p-4 text-bronze-light/80">در این روز فروشی ثبت نشده</p>
       )}
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">

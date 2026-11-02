@@ -2,7 +2,8 @@ import { type ReactNode } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { ArrowRight, ShoppingCart } from "lucide-react";
 import { useCartStore } from "@/store/cartStore";
-import museumBg from "@/assets/museum-hall-bg.jpg";
+import { formatNumber } from "@/lib/money";
+import { KioskBackdrop } from "@/components/KioskBackdrop";
 import federationLogo from "@/assets/federation-logo.png";
 
 interface PageShellProps {
@@ -18,60 +19,50 @@ export function PageShell({ title, backTo = "/", showCart = true, children }: Pa
 
   return (
     <div className="kiosk-root">
-      <div
-        className="fixed inset-0 z-0 bg-cover bg-center"
-        style={{ backgroundImage: `url(${museumBg})` }}
-        aria-hidden
-      />
-      <div
-        className="fixed inset-0 z-0"
-        style={{
-          background:
-            "linear-gradient(180deg, rgba(3,8,15,0.65) 0%, rgba(3,8,15,0.8) 50%, rgba(3,8,15,0.95) 100%)",
-        }}
-        aria-hidden
-      />
+      <KioskBackdrop dim="normal" />
 
-      <header className="relative z-10 shrink-0 w-full flex items-center justify-between px-6 pt-6 max-w-6xl mx-auto">
-        <button
-          onClick={() => navigate({ to: backTo })}
-          className="touch-btn glass-bronze rounded-2xl px-4 py-3 flex items-center gap-2 text-bronze-light hover:brightness-110 transition"
-          aria-label="بازگشت"
-        >
-          <ArrowRight className="w-5 h-5" />
-          <span className="font-bold">بازگشت</span>
-        </button>
-
-        <Link to="/" className="flex items-center gap-3 group">
-          <img
-            src={federationLogo}
-            alt="نشان فدراسیون"
-            className="w-14 h-14 object-contain drop-shadow-[0_0_20px_rgba(205,127,50,0.5)] group-hover:scale-105 transition"
-          />
-          <h1 className="hidden sm:block text-xl md:text-2xl font-black text-bronze-gradient">
-            {title}
-          </h1>
-        </Link>
-
-        {showCart ? (
+      <header className="relative z-10 shrink-0 w-full max-w-6xl mx-auto px-5 pt-5">
+        <div className="glass rounded-[2rem] px-3 py-3 flex items-center justify-between gap-3">
           <button
-            onClick={() => navigate({ to: "/cart" })}
-            className="touch-btn glass-bronze rounded-2xl px-4 py-3 relative text-bronze-light hover:brightness-110 transition"
-            aria-label="سبد خرید"
+            onClick={() => navigate({ to: backTo })}
+            className="touch-btn glass-chip rounded-full h-14 px-6 flex items-center gap-2 text-white font-bold hover:brightness-125"
+            aria-label="بازگشت"
           >
-            <ShoppingCart className="w-6 h-6" />
-            {itemCount > 0 && (
-              <span
-                className="absolute -top-2 -right-2 min-w-[24px] h-6 px-1.5 rounded-full bg-red-500 text-white text-xs font-black flex items-center justify-center"
-                style={{ boxShadow: "0 0 0 2px var(--museum-navy)" }}
-              >
-                {itemCount}
-              </span>
-            )}
+            <ArrowRight className="w-5 h-5" />
+            <span>بازگشت</span>
           </button>
-        ) : (
-          <div className="w-[112px]" />
-        )}
+
+          <Link to="/" className="flex items-center gap-3 min-w-0 group touch-btn">
+            <img
+              src={federationLogo}
+              alt="نشان فدراسیون"
+              className="w-14 h-14 object-contain drop-shadow-[0_0_18px_rgba(205,127,50,0.6)] group-hover:scale-105 transition"
+            />
+            <h1 className="hidden sm:block text-xl md:text-2xl font-black text-bronze-gradient truncate">
+              {title}
+            </h1>
+          </Link>
+
+          {showCart ? (
+            <button
+              onClick={() => navigate({ to: "/cart" })}
+              className="touch-btn glass-chip rounded-full h-14 w-14 relative flex items-center justify-center text-white hover:brightness-125"
+              aria-label="سبد خرید"
+            >
+              <ShoppingCart className="w-6 h-6" />
+              {itemCount > 0 && (
+                <span
+                  className="btn-liquid absolute -top-1.5 -right-1.5 min-w-[1.6rem] h-[1.6rem] px-1.5 rounded-full text-xs font-black flex items-center justify-center animate-pop-in"
+                  style={{ boxShadow: "0 0 0 2px rgba(3,8,15,0.9), 0 6px 14px rgba(0,0,0,0.4)" }}
+                >
+                  {formatNumber(itemCount)}
+                </span>
+              )}
+            </button>
+          ) : (
+            <div className="w-14" />
+          )}
+        </div>
       </header>
 
       <h1 className="sm:hidden relative z-10 shrink-0 text-center text-2xl font-black text-bronze-gradient mt-4">
@@ -80,7 +71,7 @@ export function PageShell({ title, backTo = "/", showCart = true, children }: Pa
 
       <main className="kiosk-body relative z-10 w-full">{children}</main>
 
-      <footer className="relative z-10 shrink-0 text-center text-bronze-light/40 text-xs py-4">
+      <footer className="relative z-10 shrink-0 text-center text-white/40 text-xs py-4">
         © فدراسیون کشتی جمهوری اسلامی ایران
       </footer>
     </div>

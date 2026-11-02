@@ -101,7 +101,7 @@ function ReviewTransactionsPage() {
       )}
 
       {state.status === "done" && state.result.ok && state.result.rows.length === 0 && (
-        <p className="rounded-xl border border-primary/20 bg-black/30 p-4 text-bronze-light/80">
+        <p className="rounded-xl border  p-4 text-bronze-light/80">
           در این روز تراکنش نیازمند بررسی ثبت نشده
         </p>
       )}

@@ -165,7 +165,7 @@ function AdminPasswordSetupCard() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="you@example.com"
-                className="h-11 bg-black/40 border-primary/30 text-white"
+                className="h-11  text-white"
                 dir="ltr"
               />
             </div>
@@ -180,7 +180,7 @@ function AdminPasswordSetupCard() {
                 minLength={8}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="h-11 bg-black/40 border-primary/30 text-white"
+                className="h-11  text-white"
                 dir="ltr"
               />
             </div>
@@ -195,7 +195,7 @@ function AdminPasswordSetupCard() {
                 minLength={8}
                 value={confirm}
                 onChange={(e) => setConfirm(e.target.value)}
-                className="h-11 bg-black/40 border-primary/30 text-white"
+                className="h-11  text-white"
                 dir="ltr"
               />
             </div>
@@ -320,7 +320,7 @@ function ChangePasswordCard() {
             minLength={8}
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            className="h-11 bg-black/40 border-primary/30 text-white"
+            className="h-11  text-white"
             dir="ltr"
           />
         </div>
@@ -335,7 +335,7 @@ function ChangePasswordCard() {
             minLength={8}
             value={confirm}
             onChange={(e) => setConfirm(e.target.value)}
-            className="h-11 bg-black/40 border-primary/30 text-white"
+            className="h-11  text-white"
             dir="ltr"
           />
         </div>

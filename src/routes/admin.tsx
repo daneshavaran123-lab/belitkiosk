@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { AdminAccessContext, fetchAdminOpenMode } from "@/lib/admin-access";
+import { KioskBackdrop } from "@/components/KioskBackdrop";
 
 export const Route = createFileRoute("/admin")({
   head: () => ({
@@ -94,33 +95,38 @@ function AdminLayout() {
 
   if (state === "loading") {
     return (
-      <div className="h-full flex items-center justify-center bg-[#03080f]">
-        <div className="w-14 h-14 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+      <div className="h-full flex items-center justify-center relative">
+        <KioskBackdrop dim="deep" />
+        <div className="relative z-10 glass rounded-full p-5">
+          <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+        </div>
       </div>
     );
   }
 
   if (state === "denied") {
     return (
-      <div className="h-full flex flex-col items-center justify-center gap-4 bg-[#03080f] text-center px-6">
-        <h2 className="text-3xl font-black text-bronze-gradient">دسترسی مجاز نیست</h2>
-        <p className="text-bronze-light/70">حساب شما نقش «admin» ندارد.</p>
-        <div className="flex gap-3">
-          <Button
-            onClick={async () => {
-              await supabase.auth.signOut();
-              navigate({ to: "/admin/login" });
-            }}
-            className="rounded-xl"
-          >
-            خروج
-          </Button>
-          <Link
-            to="/"
-            className="inline-flex items-center gap-2 h-10 px-4 rounded-xl glass-bronze text-bronze-light"
-          >
-            <Home className="w-4 h-4" /> صفحه اصلی
-          </Link>
+      <div className="h-full flex items-center justify-center relative px-6">
+        <KioskBackdrop dim="deep" />
+        <div className="relative z-10 glass-strong rounded-[2rem] p-10 flex flex-col items-center gap-4 text-center max-w-md">
+          <h2 className="text-3xl font-black text-bronze-gradient">دسترسی مجاز نیست</h2>
+          <p className="text-white/70">حساب شما نقش «admin» ندارد.</p>
+          <div className="flex gap-3">
+            <Button
+              onClick={async () => {
+                await supabase.auth.signOut();
+                navigate({ to: "/admin/login" });
+              }}
+            >
+              خروج
+            </Button>
+            <Link
+              to="/"
+              className="touch-btn glass-chip inline-flex items-center gap-2 h-11 px-5 rounded-full text-white font-bold"
+            >
+              <Home className="w-4 h-4" /> صفحه اصلی
+            </Link>
+          </div>
         </div>
       </div>
     );
@@ -130,31 +136,29 @@ function AdminLayout() {
     <AdminAccessContext.Provider
       value={{ openMode, email, refresh: () => setVersion((v) => v + 1) }}
     >
-      <div className="h-dvh max-h-dvh flex flex-col overflow-hidden bg-[#03080f] text-bronze-light">
-        <header className="shrink-0 border-b border-primary/20 bg-black/40 backdrop-blur">
-          <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
+      <div className="h-dvh max-h-dvh flex flex-col overflow-hidden text-foreground relative">
+        <KioskBackdrop dim="deep" />
+        <header className="relative z-10 shrink-0 px-4 pt-4">
+          <div className="max-w-7xl mx-auto glass rounded-[1.75rem] px-5 h-16 flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div
-                className="w-10 h-10 rounded-xl flex items-center justify-center"
-                style={{
-                  background: "linear-gradient(135deg, #f5c98a, #cd7f32 40%, #8b5a2b)",
-                }}
-              >
-                <LayoutDashboard className="w-5 h-5 text-[#03080f]" />
+              <div className="btn-liquid w-11 h-11 rounded-2xl flex items-center justify-center">
+                <LayoutDashboard className="w-5 h-5" />
               </div>
               <h1 className="text-lg font-black text-bronze-gradient">پنل مدیریت موزه</h1>
             </div>
             <div className="flex items-center gap-3">
               {email ? (
-                <span className="hidden sm:block text-sm text-bronze-light/70" dir="ltr">
+                <span className="hidden sm:block text-sm text-white/70" dir="ltr">
                   {email}
                 </span>
               ) : (
-                <span className="text-sm text-amber-300 font-bold">بدون رمز</span>
+                <span className="glass-chip rounded-full px-3 py-1 text-xs text-amber-200 font-bold">
+                  بدون رمز
+                </span>
               )}
               <Link
                 to="/"
-                className="touch-btn h-10 px-3 rounded-xl glass border border-primary/20 text-bronze-light flex items-center gap-1 text-sm"
+                className="touch-btn glass-chip h-10 px-4 rounded-full text-white flex items-center gap-1.5 text-sm font-bold"
               >
                 <Home className="w-4 h-4" /> سایت
               </Link>
@@ -164,7 +168,7 @@ function AdminLayout() {
                     await supabase.auth.signOut();
                     navigate({ to: "/admin/login" });
                   }}
-                  className="touch-btn h-10 px-3 rounded-xl bg-red-500/20 border border-red-500/40 text-red-200 flex items-center gap-1 text-sm"
+                  className="touch-btn h-10 px-4 rounded-full bg-red-500/25 border border-red-300/40 text-red-100 backdrop-blur-md flex items-center gap-1.5 text-sm font-bold"
                 >
                   <LogOut className="w-4 h-4" /> خروج
                 </button>
@@ -172,8 +176,8 @@ function AdminLayout() {
             </div>
           </div>
           {openMode && (
-            <div className="bg-amber-500/15 border-t border-amber-500/40 text-amber-200 text-sm">
-              <div className="max-w-7xl mx-auto px-6 py-2 flex items-center gap-2">
+            <div className="max-w-7xl mx-auto mt-3 glass-amber rounded-2xl text-amber-50 text-sm">
+              <div className="px-5 py-2.5 flex items-center gap-2">
                 <ShieldAlert className="w-4 h-4 shrink-0" />
                 <span>
                   پنل مدیریت بدون رمز است و هر کسی آدرس آن را بداند وارد می‌شود. از داشبورد ←
@@ -184,9 +188,9 @@ function AdminLayout() {
           )}
         </header>
 
-        <div className="flex-1 min-h-0 max-w-7xl w-full mx-auto flex flex-col lg:flex-row overflow-hidden">
-          <nav className="lg:w-56 shrink-0 p-4 lg:border-l lg:border-primary/15 lg:overflow-y-auto">
-            <ul className="flex lg:flex-col gap-2 overflow-x-auto">
+        <div className="relative z-10 flex-1 min-h-0 max-w-7xl w-full mx-auto flex flex-col lg:flex-row overflow-hidden">
+          <nav className="lg:w-60 shrink-0 p-4 lg:overflow-y-auto">
+            <ul className="glass rounded-[1.75rem] p-2.5 flex lg:flex-col gap-1.5 overflow-x-auto">
               {NAV.map((n) => {
                 const active = n.exact ? pathname === n.to : pathname.startsWith(n.to);
                 const Icon = n.icon;
@@ -194,16 +198,11 @@ function AdminLayout() {
                   <li key={n.to}>
                     <Link
                       to={n.to}
-                      className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold whitespace-nowrap transition ${
-                        active ? "text-[#03080f]" : "text-bronze-light hover:bg-white/5"
+                      className={`touch-btn flex items-center gap-3 px-4 py-3 rounded-full font-bold whitespace-nowrap transition ${
+                        active ? "btn-liquid" : "text-white/80 hover:bg-white/10 hover:text-white"
                       }`}
-                      style={
-                        active
-                          ? { background: "linear-gradient(135deg, #f5c98a, #cd7f32 40%, #8b5a2b)" }
-                          : undefined
-                      }
                     >
-                      <Icon className="w-4 h-4" />
+                      <Icon className="w-[1.15rem] h-[1.15rem]" />
                       {n.label}
                     </Link>
                   </li>

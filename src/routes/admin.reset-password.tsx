@@ -89,7 +89,7 @@ function ResetPasswordPage() {
               minLength={8}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="h-12 bg-black/40 border-primary/30 text-white"
+              className="h-12  text-white"
               dir="ltr"
               disabled={!ready}
             />
@@ -105,7 +105,7 @@ function ResetPasswordPage() {
               minLength={8}
               value={confirm}
               onChange={(e) => setConfirm(e.target.value)}
-              className="h-12 bg-black/40 border-primary/30 text-white"
+              className="h-12  text-white"
               dir="ltr"
               disabled={!ready}
             />

@@ -14,8 +14,8 @@ const searchSchema = z.object({
   invoice: z.string().default(""),
   total: z.coerce.number().default(0),
   method: z.enum(["card", "cash"]).default("card"),
-  ref: z.string().optional(),
-  pan: z.string().optional(),
+  ref: z.coerce.string().optional(),
+  pan: z.coerce.string().optional(),
 });
 
 export const Route = createFileRoute("/checkout/success")({
@@ -64,71 +64,79 @@ function SuccessPage() {
     <PageShell title="پرداخت موفق" showCart={false}>
       <Toaster position="top-center" richColors />
       <section className="max-w-xl mx-auto px-6 py-8">
-        <div className="glass-bronze rounded-3xl p-8 text-center space-y-6 animate-scale-in relative overflow-hidden">
+        <div className="glass-bronze rounded-[2.5rem] p-8 text-center space-y-6 animate-scale-in relative overflow-hidden">
           <div
             className="absolute top-0 inset-x-0 h-1"
             style={{ background: "linear-gradient(90deg, #f5c98a, #cd7f32, #8b5a2b)" }}
           />
-          <div
-            className="w-24 h-24 rounded-full mx-auto flex items-center justify-center"
-            style={{
-              background: "radial-gradient(circle at 30% 30%, #86efac, #22c55e 55%, #14532d)",
-              boxShadow: "0 15px 40px rgba(34,197,94,0.35)",
-            }}
-          >
-            <CheckCircle2 className="w-14 h-14 text-white" strokeWidth={2.5} />
+          <div className="relative w-28 h-28 mx-auto">
+            <span
+              className="absolute inset-0 rounded-full border-2 border-emerald-300/60 animate-ring-pulse"
+              aria-hidden
+            />
+            <div
+              className="relative w-28 h-28 rounded-full flex items-center justify-center animate-pop-in"
+              style={{
+                background:
+                  "radial-gradient(circle at 30% 25%, #d1fae5, #4ade80 40%, #16a34a 75%, #14532d)",
+                boxShadow:
+                  "inset 0 2px 0 rgba(255,255,255,0.7), inset 0 -5px 12px rgba(5,60,30,0.5), 0 20px 50px rgba(34,197,94,0.45)",
+              }}
+            >
+              <CheckCircle2 className="w-16 h-16 text-white" strokeWidth={2.5} />
+            </div>
           </div>
 
           <div>
             <h2 className="text-3xl font-black text-bronze-gradient">پرداخت با موفقیت ثبت شد</h2>
-            <p className="mt-2 text-bronze-light/70 font-medium">
+            <p className="mt-2 text-white/70 font-medium">
               روش پرداخت: {method === "card" ? "کارت‌خوان" : "نقدی"}
             </p>
           </div>
 
           <div
             ref={qrBox}
-            className="bg-white rounded-2xl p-5 inline-block mx-auto shadow-2xl border-4 border-[#cd7f32]/40"
+            className="bg-white rounded-3xl p-5 inline-block mx-auto shadow-[0_24px_60px_-12px_rgba(0,0,0,0.7)] ring-4 ring-white/30"
           >
             <QRCodeSVG value={ticketQrValue(invoice)} size={180} level="M" />
           </div>
 
-          <div className="bg-black/40 rounded-2xl p-5 border border-primary/20 text-right space-y-2">
-            <div className="flex justify-between text-bronze-light/70">
+          <div className="glass-well rounded-3xl p-5 text-right space-y-2">
+            <div className="flex justify-between text-white/70">
               <span>شماره فاکتور:</span>
-              <span className="font-mono font-bold text-bronze-light">{invoice}</span>
+              <span className="font-mono font-bold text-white">{invoice}</span>
             </div>
             {ref && (
-              <div className="flex justify-between text-bronze-light/70">
+              <div className="flex justify-between text-white/70">
                 <span>کد پیگیری کارت‌خوان:</span>
-                <span className="font-mono font-bold text-bronze-light" dir="ltr">
+                <span className="font-mono font-bold text-white" dir="ltr">
                   {ref}
                 </span>
               </div>
             )}
             {pan && (
-              <div className="flex justify-between text-bronze-light/70">
+              <div className="flex justify-between text-white/70">
                 <span>شمارهٔ کارت:</span>
-                <span className="font-mono font-bold text-bronze-light" dir="ltr">
+                <span className="font-mono font-bold text-white" dir="ltr">
                   {pan}
                 </span>
               </div>
             )}
-            <hr className="border-primary/20" />
-            <div className="flex justify-between text-white font-black text-xl">
+            <hr className="border-white/15 border-dashed" />
+            <div className="flex justify-between items-baseline text-white font-black text-xl">
               <span>مبلغ پرداختی:</span>
-              <span className="text-bronze-gradient">{fmt(total)}</span>
+              <span className="text-bronze-gradient text-2xl">{fmt(total)}</span>
             </div>
           </div>
 
-          <p className="text-bronze-light/60 text-sm font-medium">
+          <p className="text-white/60 text-sm font-medium">
             لطفاً از این صفحه عکس بگیرید تا در ورودی موزه ارائه دهید.
           </p>
 
           <button
             onClick={reprint}
             disabled={printing}
-            className="touch-btn inline-flex items-center justify-center gap-2 w-full h-14 text-lg font-black rounded-2xl glass border border-primary/30 text-bronze-light disabled:opacity-60"
+            className="touch-btn glass-chip inline-flex items-center justify-center gap-2 w-full h-16 text-lg font-black rounded-full text-white disabled:opacity-60"
           >
             <Printer className="w-5 h-5" />
             {printing ? "در حال چاپ..." : "چاپ دوبارهٔ بلیط"}
@@ -136,13 +144,9 @@ function SuccessPage() {
 
           <Link
             to="/"
-            className="touch-btn inline-flex items-center justify-center gap-2 w-full h-14 text-lg font-black rounded-2xl text-primary-foreground"
-            style={{
-              background: "linear-gradient(135deg, #f5c98a, #cd7f32 40%, #8b5a2b)",
-              boxShadow: "0 10px 30px rgba(205,127,50,0.35)",
-            }}
+            className="touch-btn btn-liquid inline-flex items-center justify-center gap-2 w-full h-[4.25rem] text-xl font-black rounded-full hover:brightness-105"
           >
-            <Home className="w-5 h-5" />
+            <Home className="w-6 h-6" />
             بازگشت به صفحه اصلی
           </Link>
         </div>

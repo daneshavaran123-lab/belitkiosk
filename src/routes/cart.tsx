@@ -2,13 +2,21 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { QRCodeSVG } from "qrcode.react";
 import { useCartStore } from "@/store/cartStore";
-import { Trash2, ShoppingCart, CreditCard, Banknote, Ticket, AlertTriangle } from "lucide-react";
+import {
+  Trash2,
+  ShoppingCart,
+  CreditCard,
+  Banknote,
+  Ticket,
+  AlertTriangle,
+  CheckCircle2,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PageShell } from "@/components/PageShell";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Toaster } from "@/components/ui/sonner";
-import { formatToman } from "@/lib/money";
+import { formatNumber, formatToman } from "@/lib/money";
 import {
   newTransactionId,
   posAuthorizeCash,
@@ -390,30 +398,57 @@ function CartPage() {
           >
             {qrValue && <QRCodeSVG value={qrValue} size={320} level="M" />}
           </div>
-          <div className="w-20 h-20 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+          <div className="glass-bronze rounded-[2.5rem] w-full max-w-xl px-8 py-12 flex flex-col items-center gap-6 animate-scale-in">
+            <div className="relative w-36 h-36 flex items-center justify-center">
+              <span
+                className="absolute inset-0 rounded-full border-2 border-[#f0b868]/60 animate-ring-pulse"
+                aria-hidden
+              />
+              <span
+                className="absolute inset-0 rounded-full border-2 border-[#f0b868]/40 animate-ring-pulse"
+                style={{ animationDelay: "1.1s" }}
+                aria-hidden
+              />
+              <div
+                className="relative w-28 h-28 rounded-full flex items-center justify-center"
+                style={{
+                  background:
+                    "radial-gradient(circle at 30% 25%, #fff0d2, #f0b868 35%, #cd7f32 70%, #8b5a2b)",
+                  boxShadow:
+                    "inset 0 2px 0 rgba(255,255,255,0.7), inset 0 -4px 10px rgba(120,60,10,0.45), 0 18px 44px rgba(205,127,50,0.55)",
+                }}
+              >
+                {method === "card" ? (
+                  <CreditCard className="w-14 h-14 text-[#2a1606]" strokeWidth={2} />
+                ) : (
+                  <Banknote className="w-14 h-14 text-[#2a1606]" strokeWidth={2} />
+                )}
+              </div>
+            </div>
 
-          <h2 className="text-3xl font-black text-bronze-gradient">در حال پردازش پرداخت...</h2>
-          <p className="text-bronze-light/70 text-lg font-medium">
-            {method === "card"
-              ? "لطفاً کارت خود را روی دستگاه بکشید"
-              : "پرداخت نقدی با تأیید متصدی ثبت شد"}
-          </p>
-          {method === "card" && (
-            <>
-              <PosLiveBadge state={pos.state} latencyMs={pos.latencyMs} />
-              <p className="text-bronze-light/50 text-sm">{posStatus}</p>
-              <p className="text-2xl font-black text-bronze-gradient">{fmt(payAmount)}</p>
-              {(activeTx || abort) && (
-                <button
-                  onClick={() => void cancelPos()}
-                  disabled={cancelling}
-                  className="touch-btn h-12 px-8 rounded-full font-black glass border border-primary/30 text-bronze-light disabled:opacity-50"
-                >
-                  {cancelling ? "در حال لغو..." : "لغو تراکنش"}
-                </button>
-              )}
-            </>
-          )}
+            <h2 className="text-3xl font-black text-bronze-gradient">در حال پردازش پرداخت...</h2>
+            <p className="text-white/80 text-xl font-bold">
+              {method === "card"
+                ? "لطفاً کارت خود را روی دستگاه بکشید"
+                : "پرداخت نقدی با تأیید متصدی ثبت شد"}
+            </p>
+            {method === "card" && (
+              <>
+                <p className="text-4xl font-black text-bronze-gradient">{fmt(payAmount)}</p>
+                <PosLiveBadge state={pos.state} latencyMs={pos.latencyMs} />
+                <p className="text-white/55 text-sm font-medium leading-7">{posStatus}</p>
+                {(activeTx || abort) && (
+                  <button
+                    onClick={() => void cancelPos()}
+                    disabled={cancelling}
+                    className="touch-btn glass-chip h-14 px-10 rounded-full font-black text-white disabled:opacity-50"
+                  >
+                    {cancelling ? "در حال لغو..." : "لغو تراکنش"}
+                  </button>
+                )}
+              </>
+            )}
+          </div>
         </div>
       </PageShell>
     );
@@ -422,17 +457,17 @@ function CartPage() {
   return (
     <PageShell title="سبد خرید" showCart={false}>
       <Toaster position="top-center" richColors />
-      <section className="max-w-2xl mx-auto px-6 py-8">
+      <section className="max-w-2xl mx-auto px-6 py-8 min-h-full flex flex-col">
         {notice && (
           <div
             role="alert"
-            className="mb-6 rounded-2xl border border-amber-400/50 bg-amber-500/10 p-5 space-y-3 animate-fade-in-up"
+            className="glass-amber mb-6 rounded-[2rem] p-6 space-y-3 animate-fade-in-up"
           >
             <p className="flex items-center gap-2 text-amber-200 font-black text-lg">
               <AlertTriangle className="w-6 h-6" />
               {notice.title}
             </p>
-            <p className="text-bronze-light/80 leading-7">{notice.body}</p>
+            <p className="text-white/85 leading-7">{notice.body}</p>
             {notice.code && (
               <p className="text-bronze-light/70">
                 کد پیگیری کیوسک:{" "}
@@ -443,40 +478,37 @@ function CartPage() {
             )}
             <button
               onClick={() => setNotice(null)}
-              className="touch-btn h-11 px-6 rounded-full font-black glass border border-amber-400/40 text-amber-100"
+              className="touch-btn glass-chip h-12 px-8 rounded-full font-black text-amber-100"
             >
               متوجه شدم
             </button>
           </div>
         )}
         {items.length === 0 ? (
-          <div className="flex flex-col items-center justify-center text-center pt-16 glass-bronze rounded-3xl p-10 animate-fade-in-up">
-            <ShoppingCart className="w-20 h-20 text-bronze-light/30 mb-5" />
-            <p className="text-2xl text-bronze-light/70 font-bold mb-6">سبد خرید شما خالی است</p>
+          <div className="my-auto flex flex-col items-center justify-center text-center glass-bronze rounded-[2.5rem] p-12 animate-fade-in-up">
+            <ShoppingCart className="w-24 h-24 text-white/30 mb-5" strokeWidth={1.5} />
+            <p className="text-2xl text-white/80 font-bold mb-2">سبد خرید شما خالی است</p>
+            <p className="text-white/50 mb-7">برای شروع، یک بلیط انتخاب کنید.</p>
             <Link
               to="/tickets"
-              className="touch-btn inline-flex items-center gap-2 h-14 px-8 text-lg font-black rounded-full text-primary-foreground"
-              style={{
-                background: "linear-gradient(135deg, #f5c98a, #cd7f32 40%, #8b5a2b)",
-                boxShadow: "0 10px 30px rgba(205,127,50,0.35)",
-              }}
+              className="touch-btn btn-liquid inline-flex items-center gap-2 h-16 px-10 text-xl font-black rounded-full hover:brightness-105"
             >
               <Ticket className="w-5 h-5" />
               خرید بلیط
             </Link>
           </div>
         ) : (
-          <div className="space-y-4 animate-fade-in-up">
+          <div className="my-auto flex flex-col gap-4 animate-fade-in-up">
             {items.map((item) => (
               <div
                 key={item.id}
-                className="glass-bronze rounded-2xl p-5 flex items-center justify-between"
+                className="glass-bronze rounded-[1.75rem] p-5 flex items-center justify-between gap-4"
               >
                 <div className="flex-1">
-                  <h3 className="text-white font-bold text-lg">{item.name}</h3>
-                  <p className="text-bronze-light/60 text-sm font-medium mt-1">
-                    {item.quantity} × {fmt(item.unitPrice)}
-                    {item.discountPercent > 0 && ` (${item.discountPercent}٪ تخفیف)`}
+                  <h3 className="text-white font-black text-xl">{item.name}</h3>
+                  <p className="text-white/60 text-sm font-medium mt-1">
+                    {formatNumber(item.quantity)} × {fmt(item.unitPrice)}
+                    {item.discountPercent > 0 && ` (${formatNumber(item.discountPercent)}٪ تخفیف)`}
                   </p>
                 </div>
                 <div className="flex items-center gap-4">
@@ -485,43 +517,41 @@ function CartPage() {
                   </span>
                   <button
                     onClick={() => removeItem(item.id)}
-                    className="touch-btn text-rose-400/70 hover:text-rose-400 p-2"
+                    className="touch-btn glass-chip h-12 w-12 rounded-full flex items-center justify-center text-rose-300 hover:text-rose-200"
                     aria-label="حذف"
                   >
-                    <Trash2 className="w-6 h-6" />
+                    <Trash2 className="w-5 h-5" />
                   </button>
                 </div>
               </div>
             ))}
 
-            <div className="glass-bronze rounded-2xl p-6 space-y-3 mt-6 relative overflow-hidden">
+            <div className="glass-bronze rounded-[2rem] p-6 space-y-3 relative overflow-hidden">
               <div
                 className="absolute top-0 inset-x-0 h-1"
                 style={{
                   background: "linear-gradient(90deg, #f5c98a, #cd7f32, #8b5a2b)",
                 }}
               />
-              <div className="flex justify-between text-bronze-light/80 font-medium">
+              <div className="flex justify-between text-white/75 font-medium">
                 <span>جمع اقلام:</span>
                 <span>{fmt(getSubtotal())}</span>
               </div>
               {getTotalDiscount() > 0 && (
-                <div className="flex justify-between text-emerald-400 font-medium">
+                <div className="flex justify-between text-emerald-300 font-medium">
                   <span>تخفیف:</span>
                   <span>- {fmt(getTotalDiscount())}</span>
                 </div>
               )}
-              <hr className="border-primary/20" />
-              <div className="flex justify-between text-white font-black text-2xl">
+              <hr className="border-white/15" />
+              <div className="flex justify-between items-baseline text-white font-black text-2xl">
                 <span>مبلغ قابل پرداخت:</span>
                 <span className="text-bronze-gradient">{fmt(getTotal())}</span>
               </div>
             </div>
 
             <div className="flex items-center justify-between gap-3">
-              <span className="text-bronze-light/60 text-sm font-bold">
-                وضعیت لحظه‌ای کارت‌خوان
-              </span>
+              <span className="text-white/60 text-sm font-bold">وضعیت لحظه‌ای کارت‌خوان</span>
               <PosLiveBadge state={pos.state} latencyMs={pos.latencyMs} />
             </div>
 
@@ -542,17 +572,21 @@ function CartPage() {
                   key={key}
                   onClick={() => setMethod(key)}
                   disabled={key === "cash" && cashEnabled === false}
-                  className={`touch-btn flex flex-col items-center gap-3 p-6 rounded-2xl border-2 transition disabled:opacity-40 ${
+                  aria-pressed={method === key}
+                  className={`touch-btn relative flex flex-col items-center gap-3 p-6 rounded-[2rem] transition disabled:opacity-40 ${
                     method === key
-                      ? "glass-bronze border-primary shadow-[0_10px_30px_rgba(205,127,50,0.3)]"
-                      : "glass border-white/10 hover:border-primary/40"
+                      ? "glass-bronze !border-[#f0b868] shadow-[0_0_0_2px_rgb(240_184_104/0.55),0_20px_44px_-12px_rgb(205_127_50/0.55)]"
+                      : "glass hover:brightness-125"
                   }`}
                 >
+                  {method === key && (
+                    <CheckCircle2 className="absolute top-3 right-3 w-6 h-6 text-[#f0b868] animate-pop-in" />
+                  )}
                   <Icon
-                    className={`w-10 h-10 ${method === key ? "text-primary" : "text-bronze-light/60"}`}
+                    className={`w-12 h-12 ${method === key ? "text-[#f0b868]" : "text-white/60"}`}
                   />
-                  <span className="text-white font-bold text-lg">{label}</span>
-                  <span className="text-bronze-light/50 text-xs font-medium">{sub}</span>
+                  <span className="text-white font-black text-xl">{label}</span>
+                  <span className="text-white/55 text-xs font-medium">{sub}</span>
                 </button>
               ))}
             </div>
@@ -560,11 +594,7 @@ function CartPage() {
             <Button
               onClick={() => void pay()}
               disabled={paying}
-              className="touch-btn w-full h-16 text-xl font-black rounded-2xl text-primary-foreground"
-              style={{
-                background: "linear-gradient(135deg, #f5c98a, #cd7f32 40%, #8b5a2b)",
-                boxShadow: "0 12px 32px rgba(205,127,50,0.4)",
-              }}
+              className="touch-btn btn-liquid w-full h-[4.5rem] text-2xl font-black rounded-full hover:brightness-105"
             >
               پرداخت {fmt(getTotal())}
             </Button>

@@ -51,24 +51,26 @@ export function CashierPinPad({
   }, [press, back, submit, onCancel]);
 
   const keyClass =
-    "touch-btn h-16 rounded-2xl glass border border-primary/25 text-2xl font-black text-bronze-light active:scale-95 transition disabled:opacity-40";
+    "touch-btn glass-chip h-[4.5rem] rounded-full text-3xl font-black text-white transition disabled:opacity-40";
 
   return (
     <div
       role="dialog"
       aria-modal="true"
       aria-label="رمز متصدی"
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm px-6"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 backdrop-blur-md px-6"
     >
-      <div className="glass-bronze w-full max-w-sm rounded-3xl p-6 space-y-5 text-center animate-scale-in">
+      <div className="glass-strong w-full max-w-md rounded-[2.5rem] p-7 space-y-5 text-center animate-scale-in">
         <div className="space-y-2">
-          <Banknote className="w-10 h-10 mx-auto text-primary" />
+          <div className="btn-liquid w-16 h-16 rounded-full mx-auto flex items-center justify-center">
+            <Banknote className="w-8 h-8" />
+          </div>
           <h2 className="text-2xl font-black text-bronze-gradient">پرداخت نقدی</h2>
-          <p className="text-bronze-light/80 font-medium">
+          <p className="text-white/80 font-medium">
             مبلغ <span className="font-black text-white">{formatToman(amountToman)}</span> را به
             متصدی بپردازید.
           </p>
-          <p className="text-bronze-light/60 text-sm flex items-center justify-center gap-1">
+          <p className="text-white/55 text-sm flex items-center justify-center gap-1.5">
             <Lock className="w-4 h-4" />
             متصدی پس از دریافت وجه، رمز خود را وارد کند
           </p>
@@ -78,7 +80,7 @@ export function CashierPinPad({
           {Array.from({ length: Math.max(MIN_DIGITS, pin.length) }).map((_, i) => (
             <span
               key={i}
-              className={`w-4 h-4 rounded-full border-2 border-primary/60 ${i < pin.length ? "bg-primary" : ""}`}
+              className={`w-5 h-5 rounded-full border-2 border-[#f0b868]/70 transition-all duration-200 ${i < pin.length ? "bg-[radial-gradient(circle_at_30%_25%,#fff0d2,#e0a057_55%,#9a5a1c)] scale-110 shadow-[0_0_14px_rgb(240_184_104/0.7)]" : ""}`}
             />
           ))}
         </div>
@@ -113,15 +115,14 @@ export function CashierPinPad({
           <button
             onClick={onCancel}
             disabled={busy}
-            className="touch-btn h-14 rounded-2xl font-black glass border border-white/15 text-bronze-light disabled:opacity-40"
+            className="touch-btn glass-chip h-16 rounded-full text-lg font-black text-white disabled:opacity-40"
           >
             انصراف
           </button>
           <button
             onClick={() => void submit()}
             disabled={busy || pin.length < MIN_DIGITS}
-            className="touch-btn h-14 rounded-2xl font-black text-primary-foreground disabled:opacity-40 inline-flex items-center justify-center gap-2"
-            style={{ background: "linear-gradient(135deg, #f5c98a, #cd7f32 40%, #8b5a2b)" }}
+            className="touch-btn btn-liquid h-16 rounded-full text-lg font-black disabled:opacity-40 inline-flex items-center justify-center gap-2"
           >
             {busy && <Loader2 className="w-5 h-5 animate-spin" />}
             تأیید
