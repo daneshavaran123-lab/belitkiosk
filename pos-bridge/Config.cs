@@ -46,6 +46,21 @@ namespace PosBridge
         /// </summary>
         public string AccessToken = "";
 
+        /// <summary>ارسال تراکنش‌های نیازمند بررسی به سرور برای گزارش روزانه (پس از «اتصال کیوسک» در پنل روشن می‌شود)</summary>
+        public bool SyncEnabled = false;
+        /// <summary>آدرس https پروژهٔ Supabase (عمومی)</summary>
+        public string SupabaseUrl = "";
+        /// <summary>کلید publishable (عمومی)</summary>
+        public string SupabaseKey = "";
+        /// <summary>شناسهٔ این کیوسک (UUID)</summary>
+        public string KioskId = "";
+        /// <summary>
+        /// راز: کلید این کیوسک برای ثبت در سرور. فقط هش آن در سرور است. هرگز در مخزن، /config یا لاگ
+        /// نمی‌آید و از HTTP خوانده یا نوشته نمی‌شود (مثل accessToken).
+        /// </summary>
+        public string KioskSyncKey = "";
+        public int SyncIntervalSeconds = 60;
+
         public string SignCode = "";
         public string ComPort = "COM3";
         public int BaudRate = 115200;
@@ -133,6 +148,12 @@ namespace PosBridge
             str("devicePassword", v => cfg.DevicePassword = v);
             str("cashierPinHash", v => cfg.CashierPinHash = v);
             str("accessToken", v => cfg.AccessToken = v);
+            flag("syncEnabled", v => cfg.SyncEnabled = v);
+            str("supabaseUrl", v => cfg.SupabaseUrl = v);
+            str("supabaseKey", v => cfg.SupabaseKey = v);
+            str("kioskId", v => cfg.KioskId = v);
+            str("kioskSyncKey", v => cfg.KioskSyncKey = v);
+            num("syncIntervalSeconds", v => cfg.SyncIntervalSeconds = v);
             str("signCode", v => cfg.SignCode = v);
             str("comPort", v => cfg.ComPort = v);
             num("baudRate", v => cfg.BaudRate = v);
@@ -192,6 +213,26 @@ namespace PosBridge
             TerminalId = (TerminalId ?? "").Trim();
             AccessToken = (AccessToken ?? "").Trim();
 
+            SyncIntervalSeconds = Clamp(SyncIntervalSeconds, 30, 300);
+            SupabaseKey = (SupabaseKey ?? "").Trim();
+            KioskSyncKey = (KioskSyncKey ?? "").Trim();
+            KioskId = (KioskId ?? "").Trim();
+            Guid kioskGuid;
+            if (KioskId.Length > 0 && !Guid.TryParse(KioskId, out kioskGuid))
+            {
+                PosLog.Error("config", "kioskId باید یک UUID باشد؛ نادیده گرفته شد");
+                KioskId = "";
+            }
+            SupabaseUrl = (SupabaseUrl ?? "").Trim().TrimEnd('/');
+            if (SupabaseUrl.Length > 0 && !IsHttpsUrl(SupabaseUrl))
+            {
+                PosLog.Error("config", "supabaseUrl باید یک آدرس https معتبر باشد؛ همگام‌سازی خاموش شد");
+                SupabaseUrl = "";
+            }
+            // بدون آدرس، کلید و شناسه همگام‌سازی معنی ندارد
+            if (SyncEnabled && (SupabaseUrl.Length == 0 || SupabaseKey.Length == 0 || KioskId.Length == 0 || KioskSyncKey.Length == 0))
+                SyncEnabled = false;
+
             // سرویس فقط باید روی همین رایانه در دسترس باشد
             ListenUrl = (ListenUrl ?? "").Trim();
             if (!ListenUrl.EndsWith("/")) ListenUrl += "/";
@@ -203,6 +244,12 @@ namespace PosBridge
                 ListenUrl = d.ListenUrl;
             }
             return this;
+        }
+
+        public static bool IsHttpsUrl(string url)
+        {
+            Uri u;
+            return Uri.TryCreate(url, UriKind.Absolute, out u) && u.Scheme == Uri.UriSchemeHttps && !string.IsNullOrEmpty(u.Host);
         }
 
         public static bool IsValidIp(string ip)
@@ -266,6 +313,12 @@ namespace PosBridge
                 Kv("devicePassword", DevicePassword),
                 Kv("cashierPinHash", CashierPinHash),
                 Kv("accessToken", AccessToken),
+                Kv("syncEnabled", SyncEnabled),
+                Kv("supabaseUrl", SupabaseUrl),
+                Kv("supabaseKey", SupabaseKey),
+                Kv("kioskId", KioskId),
+                Kv("kioskSyncKey", KioskSyncKey),
+                Kv("syncIntervalSeconds", SyncIntervalSeconds),
                 Kv("signCode", SignCode),
                 Kv("pcposAppId", PcposAppId),
                 Kv("invoiceMaxDigits", InvoiceMaxDigits),

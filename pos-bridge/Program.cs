@@ -32,15 +32,20 @@ namespace PosBridge
         private static string _baseDir;
         private static string _configPath;
         private static readonly object ConfigLock = new object();
+        private static readonly object SyncLock = new object();
+        // همگام‌سازی تراکنش‌های نیازمند بررسی با سرور (گزارش روزانه)؛ null یعنی خاموش
+        private static ReviewSync _sync;
         private static readonly CashierPin Cashier = new CashierPin();
         private static readonly JavaScriptSerializer Json = new JavaScriptSerializer();
         // نگه‌داشتن در فیلد ایستا تا GC آن را آزاد نکند (یک نسخه از سرویس)
         private static Mutex _singleInstance;
 
-        private static int Main()
+        private static int Main(string[] args)
         {
             _baseDir = AppDomain.CurrentDomain.BaseDirectory;
             AppDomain.CurrentDomain.UnhandledException += (s, e) => LogCrash(e.ExceptionObject as Exception);
+
+            if (Array.IndexOf(args, "--setup") >= 0) return RunSetup();
 
             bool firstInstance;
             _singleInstance = new Mutex(true, "Global\\MuseumPosBridge", out firstInstance);
@@ -57,6 +62,7 @@ namespace PosBridge
                 : Path.Combine(_baseDir, _config.JournalPath);
             _journal = new TransactionJournal(journalPath);
             _device = new PosDevice(_config, _journal);
+            StartSync();
 
             // درخواست‌های بلند (/pay تا چند دقیقه، /events دائمی) نباید بقیه را منتظر بگذارند
             ThreadPool.SetMinThreads(64, 64);
@@ -77,6 +83,31 @@ namespace PosBridge
                 var ctx = listener.GetContext();
                 new Thread(() => Handle(ctx)) { IsBackground = true }.Start();
             }
+        }
+
+        /// <summary>«PosBridge.exe --setup» از نصب‌کننده: توکن و رمز متصدی بدون پنل مدیریت</summary>
+        private static int RunSetup()
+        {
+            Console.OutputEncoding = new UTF8Encoding(false);
+            var path = Path.Combine(_baseDir, "appsettings.json");
+            try
+            {
+                if (File.Exists(path)) Json.DeserializeObject(File.ReadAllText(path));
+            }
+            catch (Exception ex)
+            {
+                // فایل خراب با مقادیر پیش‌فرض بازنویسی نشود (IP دستگاه و بقیه از دست می‌رود)
+                Console.WriteLine("appsettings.json خوانده نشد؛ تنظیمات تغییر نکرد: " + ex.Message);
+                return 1;
+            }
+            var config = Config.Load(path);
+            var result = BridgeSetup.Run(config.AccessToken, config.CashierPinHash, Console.In, Console.Out,
+                Console.IsInputRedirected ? (Func<string>)null : BridgeSetup.ReadMasked);
+            if (!result.Changed) return 0;
+            config.AccessToken = result.AccessToken;
+            config.CashierPinHash = result.CashierPinHash;
+            config.Save(path);
+            return 0;
         }
 
         private static void LogCrash(Exception ex)
@@ -167,7 +198,8 @@ namespace PosBridge
                 }
 
                 if (post && (path == "/pay" || path == "/config" || path == "/print" || path == "/cancel" ||
-                             path == "/transactions/review" || path == "/cash/authorize" || path == "/cash/pin") &&
+                             path == "/transactions/review" || path == "/cash/authorize" || path == "/cash/pin" ||
+                             path == "/sync/pair" || path == "/sync/activate" || path == "/sync/disable") &&
                     !(ctx.Request.ContentType ?? "").StartsWith("application/json", StringComparison.OrdinalIgnoreCase))
                 {
                     WriteJson(ctx, 415, Fail("بدنهٔ درخواست باید JSON باشد"));
@@ -330,6 +362,13 @@ namespace PosBridge
                         HandleCashAuthorize(ctx, post);
                         break;
 
+                    case "/sync/status":
+                    case "/sync/pair":
+                    case "/sync/activate":
+                    case "/sync/disable":
+                        HandleSync(ctx, path, post);
+                        break;
+
                     case "/cash/pin":
                         HandleCashPin(ctx, post);
                         break;
@@ -355,6 +394,151 @@ namespace PosBridge
                 PosLog.Error("http", ex.Message);
                 try { WriteJson(ctx, 500, Fail("خطای داخلی سرویس پل")); } catch { /* ignore */ }
             }
+        }
+
+        /* ------------------- همگام‌سازی با سرور (گزارش روزانه) ------------------- */
+
+        private static string JournalDirectory()
+        {
+            var p = Path.IsPathRooted(_config.JournalPath) ? _config.JournalPath : Path.Combine(_baseDir, _config.JournalPath);
+            return Path.GetDirectoryName(p) ?? _baseDir;
+        }
+
+        private static void StartSync()
+        {
+            lock (SyncLock)
+            {
+                StopSync();
+                var c = _config;
+                if (!c.SyncEnabled) return;
+                var settings = new SyncSettings
+                {
+                    SupabaseUrl = c.SupabaseUrl, SupabaseKey = c.SupabaseKey, KioskId = c.KioskId,
+                    KioskSyncKey = c.KioskSyncKey, IntervalSeconds = c.SyncIntervalSeconds
+                };
+                _sync = new ReviewSync(settings, _journal, Path.Combine(JournalDirectory(), "sync-state.json"),
+                    new HttpSyncTransport(), o => Json.Serialize(o), s => Json.DeserializeObject(s));
+                _sync.Start();
+                PosLog.Info("sync", "همگام‌سازی گزارش با سرور روشن شد");
+            }
+        }
+
+        private static void StopSync()
+        {
+            lock (SyncLock)
+            {
+                if (_sync != null) { _sync.Stop(); _sync = null; }
+            }
+        }
+
+        private static string Sha256Hex(string text)
+        {
+            using (var sha = SHA256.Create())
+            {
+                var sb = new StringBuilder();
+                foreach (var b in sha.ComputeHash(Encoding.UTF8.GetBytes(text))) sb.Append(b.ToString("x2", CultureInfo.InvariantCulture));
+                return sb.ToString();
+            }
+        }
+
+        /// <summary>فقط پروژه‌های Supabase؛ تا سرویس را نتوان به آدرس دلخواه (و فرستادن کلید به آنجا) هدایت کرد</summary>
+        private static bool IsSupabaseUrl(string url)
+        {
+            Uri u;
+            return Config.IsHttpsUrl(url) && Uri.TryCreate(url, UriKind.Absolute, out u) &&
+                   u.Host.EndsWith(".supabase.co", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static Dictionary<string, object> SyncStatusObject()
+        {
+            var s = _sync;
+            var c = _config;
+            var d = s != null ? s.Status() : new Dictionary<string, object>
+            {
+                { "kioskId", c.KioskId }, { "lastSyncedAt", "" }, { "lastAttemptAt", "" }, { "lastError", "" },
+                { "pendingCount", 0 }, { "clockOffsetSeconds", 0 }
+            };
+            d["enabled"] = s != null;
+            d["paired"] = !string.IsNullOrEmpty(c.KioskId) && !string.IsNullOrEmpty(c.KioskSyncKey);
+            return d;
+        }
+
+        /// <summary>
+        /// /sync/status (بدون کلید) · /sync/pair (ساخت شناسه و کلید؛ فقط هش کلید برمی‌گردد) ·
+        /// /sync/activate (روشن کردن) · /sync/disable. قرارداد: specs/001-daily-sales-report/contracts/kiosk-sync.md
+        /// </summary>
+        private static void HandleSync(HttpListenerContext ctx, string path, bool post)
+        {
+            if (path == "/sync/status")
+            {
+                WriteJson(ctx, 200, SyncStatusObject());
+                return;
+            }
+            if (!post) { WriteJson(ctx, 405, Fail("POST لازم است")); return; }
+
+            if (path == "/sync/pair")
+            {
+                string kioskId, keyHash;
+                lock (ConfigLock)
+                {
+                    var next = Config.Load(_configPath);
+                    if (string.IsNullOrEmpty(next.KioskId)) next.KioskId = Guid.NewGuid().ToString();
+                    // جفت‌کردن دوباره کلید را عوض می‌کند؛ تا فعال‌سازی دوباره همگام‌سازی خاموش می‌ماند
+                    next.KioskSyncKey = BridgeSetup.NewToken();
+                    next.SyncEnabled = false;
+                    next.Normalize();
+                    next.Save(_configPath);
+                    _config = next;
+                    kioskId = next.KioskId;
+                    keyHash = Sha256Hex(next.KioskSyncKey);
+                }
+                StopSync();
+                PosLog.Info("sync", "کلید تازه برای این کیوسک ساخته شد (خود کلید هرگز نمایش داده نمی‌شود)");
+                // خود کلید از سرویس بیرون نمی‌رود؛ فقط هش آن برای ثبت در سرور
+                WriteJson(ctx, 200, new Dictionary<string, object> { { "ok", true }, { "kioskId", kioskId }, { "keyHash", keyHash } });
+                return;
+            }
+
+            if (path == "/sync/disable")
+            {
+                lock (ConfigLock)
+                {
+                    var next = Config.Load(_configPath);
+                    next.SyncEnabled = false;
+                    next.Save(_configPath);
+                    _config = next;
+                }
+                StopSync();
+                PosLog.Info("sync", "همگام‌سازی گزارش با سرور خاموش شد");
+                WriteJson(ctx, 200, new Dictionary<string, object> { { "ok", true } });
+                return;
+            }
+
+            // /sync/activate
+            var req = ReadJson(ctx);
+            if (req == null) { WriteJson(ctx, 400, Fail("بدنهٔ درخواست نامعتبر است")); return; }
+            var url = (Convert.ToString(Get(req, "supabaseUrl")) ?? "").Trim().TrimEnd('/');
+            var key = (Convert.ToString(Get(req, "supabaseKey")) ?? "").Trim();
+            if (!IsSupabaseUrl(url)) { WriteJson(ctx, 400, Fail("آدرس Supabase باید یک آدرس https از supabase.co باشد")); return; }
+            if (key.Length == 0 || key.Length > 1024) { WriteJson(ctx, 400, Fail("کلید Supabase نامعتبر است")); return; }
+
+            lock (ConfigLock)
+            {
+                var next = Config.Load(_configPath);
+                if (string.IsNullOrEmpty(next.KioskId) || string.IsNullOrEmpty(next.KioskSyncKey))
+                { WriteJson(ctx, 409, Fail("ابتدا کیوسک را جفت کنید")); return; }
+                next.SupabaseUrl = url;
+                next.SupabaseKey = key;
+                next.SyncEnabled = true;
+                next.Normalize();
+                next.Save(_configPath);
+                _config = next;
+            }
+            StartSync();
+            // اولین دور همین حالا انجام می‌شود تا اگر ثبت در سرور درست نبود، خطا فوراً دیده شود
+            var s = _sync;
+            var synced = s != null && s.RunOnce();
+            WriteJson(ctx, 200, new Dictionary<string, object> { { "ok", true }, { "synced", synced }, { "status", SyncStatusObject() } });
         }
 
         /// <summary>

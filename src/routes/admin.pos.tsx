@@ -41,6 +41,7 @@ import {
   DEFAULT_MERCHANT_ID,
   DEFAULT_SERIAL_NUMBER,
   DEFAULT_TERMINAL_ID,
+  getDesktopPosToken,
   getPingHistory,
   getPosAccessToken,
   getPosSettings,
@@ -70,6 +71,7 @@ import {
   type PosStep,
 } from "@/lib/pos";
 import { PosLiveBadge, type PosLiveState } from "@/components/PosLiveStatus";
+import { KioskSyncCard } from "@/components/KioskSyncCard";
 import {
   CashierPinCard,
   PosProtocolCard,
@@ -252,6 +254,7 @@ function AdminPos({ onLock }: { onLock: () => void }) {
   const [logs, setLogs] = useState<PosLogEntry[]>([]);
   const [transport, setTransport] = useState<"sse" | "polling" | null>(null);
   const [token, setToken] = useState("");
+  const [desktopToken, setDesktopToken] = useState(false);
   const [pings, setPings] = useState<PosPingRecord[]>([]);
   const [audit, setAudit] = useState<PosAuditEntry[]>([]);
   const [auditFilter, setAuditFilter] = useState("");
@@ -352,6 +355,7 @@ function AdminPos({ onLock }: { onLock: () => void }) {
     const s = getPosSettings();
     setForm(s);
     setToken(getPosAccessToken());
+    setDesktopToken(getDesktopPosToken() !== "");
     setPings(getPingHistory());
     setAudit(getAuditLog());
     void supabase.auth.getUser().then(({ data }) => {
@@ -1377,32 +1381,39 @@ function AdminPos({ onLock }: { onLock: () => void }) {
           <span dir="ltr"> accessToken </span>تنظیم شده باشد، مسیرهای تنظیمات و لاگ فقط با همین توکن
           پاسخ می‌دهند. توکن فقط روی همین مرورگر ذخیره می‌شود و داخل گزارش پشتیبانی نوشته نمی‌شود.
         </p>
-        <div className="flex gap-2">
-          <Input
-            dir="ltr"
-            type="password"
-            value={token}
-            onChange={(e) => setToken(e.target.value)}
-            placeholder="بدون توکن"
-            className="text-left"
-          />
-          <Button
-            variant="secondary"
-            className="rounded-xl font-black shrink-0"
-            onClick={() => {
-              setPosAccessToken(token);
-              toast.success(token.trim() ? "توکن ذخیره شد" : "توکن حذف شد");
-              localLog(
-                "info",
-                "token",
-                token.trim() ? "توکن دسترسی به‌روزرسانی شد" : "توکن حذف شد",
-              );
-              audits("token:change", { detail: token.trim() ? "توکن تغییر کرد" : "توکن حذف شد" });
-            }}
-          >
-            ذخیره توکن
-          </Button>
-        </div>
+        {desktopToken ? (
+          <p className="text-sm text-emerald-300 leading-6">
+            برنامهٔ ویندوزی توکن را خودکار از تنظیمات همین کامپیوتر می‌خواند؛ وارد کردن آن لازم
+            نیست.
+          </p>
+        ) : (
+          <div className="flex gap-2">
+            <Input
+              dir="ltr"
+              type="password"
+              value={token}
+              onChange={(e) => setToken(e.target.value)}
+              placeholder="بدون توکن"
+              className="text-left"
+            />
+            <Button
+              variant="secondary"
+              className="rounded-xl font-black shrink-0"
+              onClick={() => {
+                setPosAccessToken(token);
+                toast.success(token.trim() ? "توکن ذخیره شد" : "توکن حذف شد");
+                localLog(
+                  "info",
+                  "token",
+                  token.trim() ? "توکن دسترسی به‌روزرسانی شد" : "توکن حذف شد",
+                );
+                audits("token:change", { detail: token.trim() ? "توکن تغییر کرد" : "توکن حذف شد" });
+              }}
+            >
+              ذخیره توکن
+            </Button>
+          </div>
+        )}
       </div>
 
       {/* گزارش پشتیبانی */}
@@ -1591,6 +1602,8 @@ function AdminPos({ onLock }: { onLock: () => void }) {
       <PosTransactionsCard />
 
       <CashierPinCard />
+
+      <KioskSyncCard onAudit={(kind, detail) => audits(kind, { detail })} />
 
       <PosProtocolCard />
 

@@ -1,12 +1,19 @@
 import type { PosResult } from "@/lib/pos";
 import { posLog, posLogError } from "@/lib/pos";
 
+/** نوع آیتم فروش؛ گزارش روزانه بر اساس آن بلیط‌ها را می‌شمارد */
+export type InvoiceItemType = "ticket" | "product" | "event" | "membership" | "donation";
+
 export interface InvoiceLine {
   name: string;
   quantity: number;
   unitPrice: number;
   discountPercent: number;
   totalPrice: number;
+  /** نوع آیتم (ردیف‌های قدیمی ندارند و در گزارش «نامشخص» شمرده می‌شوند) */
+  itemType?: InvoiceItemType;
+  /** برای بلیط: شناسهٔ نوع بلیط (ticket_types.id) */
+  referenceId?: number;
 }
 
 export interface SaveInvoiceInput {
@@ -83,6 +90,8 @@ export async function saveInvoice(
       unit_price: i.unitPrice,
       discount_percent: i.discountPercent,
       total_price: i.totalPrice,
+      item_type: i.itemType ?? null,
+      reference_id: i.referenceId ?? null,
     }));
     const { error: e2 } = await db.from("invoice_items").insert(rows);
     if (e2) throw new Error(e2.message);

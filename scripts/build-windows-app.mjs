@@ -19,11 +19,12 @@ import { fileURLToPath } from "node:url";
 
 const ELECTRON_VERSION = process.env.ELECTRON_VERSION || "44.7.0";
 const APP_VERSION = process.env.APP_VERSION || "1.0.0";
-const PACKAGER = "@electron/packager@20.3.0";
 const isWindows = process.platform === "win32";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const releaseRoot = path.join(root, "release");
+// ابزار بسته‌بندی و همهٔ وابستگی‌هایش در scripts/packager/package-lock.json قفل است
+const packagerDir = path.join(root, "scripts", "packager");
 const out = path.join(releaseRoot, "MuseumKiosk-Windows");
 const zipFile = path.join(releaseRoot, "MuseumKiosk-Windows.zip");
 
@@ -76,9 +77,18 @@ console.log(`\n▶ ۲/۵ بسته‌بندی برنامهٔ ویندوزی (Elec
 const icon = path.join(root, "electron", "icon.ico");
 // برنامهٔ اصلی فقط package.json و electron/ را لازم دارد؛ سرور (.output) جدا اضافه می‌شود و بقیه کنار می‌رود
 const ignore = "^/(?!(package\\.json|electron)($|/)).+";
+run(`npm ci --prefix "${packagerDir}" --no-audit --no-fund`);
+const packager = path.join(
+  packagerDir,
+  "node_modules",
+  "@electron",
+  "packager",
+  "bin",
+  "electron-packager.mjs",
+);
 run(
   [
-    `npx --yes ${PACKAGER} .`,
+    `node "${packager}" .`,
     '"MuseumKiosk"',
     "--platform=win32 --arch=x64",
     `--electron-version=${ELECTRON_VERSION}`,

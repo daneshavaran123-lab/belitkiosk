@@ -79,6 +79,10 @@ if not exist "%BRIDGE_BIN%\appsettings.json" (
   echo تنظیمات فعلی کارت‌خوان حفظ شد.
 )
 
+REM توکن دسترسی (اگر نیست) خودکار ساخته می‌شود و رمز متصدی (اختیاری) پرسیده می‌شود؛ پنل مدیریت لازم نیست
+"%BRIDGE_BIN%\PosBridge.exe" --setup
+if errorlevel 1 echo [هشدار] تنظیم خودکار کارت‌خوان انجام نشد؛ فایل %BRIDGE_BIN%\appsettings.json را بررسی کنید.
+
 powershell -NoProfile -Command ^
   "$w=New-Object -ComObject WScript.Shell; $s=$w.CreateShortcut('%STARTUP%\pos-bridge.lnk');" ^
   "$s.TargetPath='%BRIDGE%\run.bat'; $s.WorkingDirectory='%BRIDGE%'; $s.WindowStyle=7; $s.Save()"
@@ -99,8 +103,8 @@ echo.
 echo ✅ نصب کامل شد.
 echo    اجرا: میان‌بر «موزه کشتی» روی دسکتاپ
 echo    خروج از حالت کیوسک: Ctrl + Shift + Q
-echo    تنظیمات کارت‌خوان: %BRIDGE_BIN%\appsettings.json
-echo      (accessToken را بگذارید و در پنل مدیریت ← تنظیمات کارت‌خوان، توکن و رمز متصدی را وارد کنید)
+echo    تنظیمات کارت‌خوان (IP دستگاه و ...): %BRIDGE_BIN%\appsettings.json
+echo      توکن کارت‌خوان خودکار تنظیم شد و برنامه آن را خودش استفاده می‌کند؛ پنل مدیریت لازم نیست.
 echo.
 choice /C YN /M "همین حالا برنامه اجرا شود؟"
 if errorlevel 2 goto end

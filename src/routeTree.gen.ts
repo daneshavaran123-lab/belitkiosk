@@ -9,66 +9,35 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as TicketsRouteImport } from './routes/tickets'
-import { Route as SupportRouteImport } from './routes/support'
-import { Route as SouvenirsRouteImport } from './routes/souvenirs'
-import { Route as MembershipRouteImport } from './routes/membership'
-import { Route as EventsRouteImport } from './routes/events'
-import { Route as CartRouteImport } from './routes/cart'
-import { Route as CafeRouteImport } from './routes/cafe'
-import { Route as BookstoreRouteImport } from './routes/bookstore'
-import { Route as AdminRouteImport } from './routes/admin'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AdminRouteImport } from './routes/admin'
+import { Route as BookstoreRouteImport } from './routes/bookstore'
+import { Route as CafeRouteImport } from './routes/cafe'
+import { Route as CartRouteImport } from './routes/cart'
+import { Route as DownloadRouteImport } from './routes/download'
+import { Route as EventsRouteImport } from './routes/events'
+import { Route as MembershipRouteImport } from './routes/membership'
+import { Route as SouvenirsRouteImport } from './routes/souvenirs'
+import { Route as SupportRouteImport } from './routes/support'
+import { Route as TicketsRouteImport } from './routes/tickets'
 import { Route as AdminIndexRouteImport } from './routes/admin.index'
-import { Route as CheckoutSuccessRouteImport } from './routes/checkout.success'
-import { Route as ApiHealthRouteImport } from './routes/api/health'
-import { Route as AdminTicketsRouteImport } from './routes/admin.tickets'
-import { Route as AdminSurveysRouteImport } from './routes/admin.surveys'
-import { Route as AdminResetPasswordRouteImport } from './routes/admin.reset-password'
-import { Route as AdminProductsRouteImport } from './routes/admin.products'
-import { Route as AdminPosRouteImport } from './routes/admin.pos'
-import { Route as AdminLoginRouteImport } from './routes/admin.login'
 import { Route as AdminInvoicesRouteImport } from './routes/admin.invoices'
+import { Route as AdminLoginRouteImport } from './routes/admin.login'
+import { Route as AdminPosRouteImport } from './routes/admin.pos'
+import { Route as AdminProductsRouteImport } from './routes/admin.products'
+import { Route as AdminReportsRouteImport } from './routes/admin.reports'
+import { Route as AdminResetPasswordRouteImport } from './routes/admin.reset-password'
+import { Route as AdminSurveysRouteImport } from './routes/admin.surveys'
+import { Route as AdminTicketsRouteImport } from './routes/admin.tickets'
+import { Route as ApiHealthRouteImport } from './routes/api/health'
+import { Route as CheckoutSuccessRouteImport } from './routes/checkout.success'
+import { Route as AdminReportsReviewRouteImport } from './routes/admin.reports_.review'
+import { Route as ApiDownloadWindowsRouteImport } from './routes/api/download/windows'
 import { Route as ApiPublicHealthRouteImport } from './routes/api/public/health'
 
-const TicketsRoute = TicketsRouteImport.update({
-  id: '/tickets',
-  path: '/tickets',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const SupportRoute = SupportRouteImport.update({
-  id: '/support',
-  path: '/support',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const SouvenirsRoute = SouvenirsRouteImport.update({
-  id: '/souvenirs',
-  path: '/souvenirs',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const MembershipRoute = MembershipRouteImport.update({
-  id: '/membership',
-  path: '/membership',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const EventsRoute = EventsRouteImport.update({
-  id: '/events',
-  path: '/events',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const CartRoute = CartRouteImport.update({
-  id: '/cart',
-  path: '/cart',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const CafeRoute = CafeRouteImport.update({
-  id: '/cafe',
-  path: '/cafe',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const BookstoreRoute = BookstoreRouteImport.update({
-  id: '/bookstore',
-  path: '/bookstore',
+const IndexRoute = IndexRouteImport.update({
+  id: '/',
+  path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AdminRoute = AdminRouteImport.update({
@@ -76,9 +45,49 @@ const AdminRoute = AdminRouteImport.update({
   path: '/admin',
   getParentRoute: () => rootRouteImport,
 } as any)
-const IndexRoute = IndexRouteImport.update({
-  id: '/',
-  path: '/',
+const BookstoreRoute = BookstoreRouteImport.update({
+  id: '/bookstore',
+  path: '/bookstore',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CafeRoute = CafeRouteImport.update({
+  id: '/cafe',
+  path: '/cafe',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CartRoute = CartRouteImport.update({
+  id: '/cart',
+  path: '/cart',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DownloadRoute = DownloadRouteImport.update({
+  id: '/download',
+  path: '/download',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const EventsRoute = EventsRouteImport.update({
+  id: '/events',
+  path: '/events',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MembershipRoute = MembershipRouteImport.update({
+  id: '/membership',
+  path: '/membership',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SouvenirsRoute = SouvenirsRouteImport.update({
+  id: '/souvenirs',
+  path: '/souvenirs',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SupportRoute = SupportRouteImport.update({
+  id: '/support',
+  path: '/support',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TicketsRoute = TicketsRouteImport.update({
+  id: '/tickets',
+  path: '/tickets',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AdminIndexRoute = AdminIndexRouteImport.update({
@@ -86,39 +95,9 @@ const AdminIndexRoute = AdminIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AdminRoute,
 } as any)
-const CheckoutSuccessRoute = CheckoutSuccessRouteImport.update({
-  id: '/checkout/success',
-  path: '/checkout/success',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiHealthRoute = ApiHealthRouteImport.update({
-  id: '/api/health',
-  path: '/api/health',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AdminTicketsRoute = AdminTicketsRouteImport.update({
-  id: '/tickets',
-  path: '/tickets',
-  getParentRoute: () => AdminRoute,
-} as any)
-const AdminSurveysRoute = AdminSurveysRouteImport.update({
-  id: '/surveys',
-  path: '/surveys',
-  getParentRoute: () => AdminRoute,
-} as any)
-const AdminResetPasswordRoute = AdminResetPasswordRouteImport.update({
-  id: '/reset-password',
-  path: '/reset-password',
-  getParentRoute: () => AdminRoute,
-} as any)
-const AdminProductsRoute = AdminProductsRouteImport.update({
-  id: '/products',
-  path: '/products',
-  getParentRoute: () => AdminRoute,
-} as any)
-const AdminPosRoute = AdminPosRouteImport.update({
-  id: '/pos',
-  path: '/pos',
+const AdminInvoicesRoute = AdminInvoicesRouteImport.update({
+  id: '/invoices',
+  path: '/invoices',
   getParentRoute: () => AdminRoute,
 } as any)
 const AdminLoginRoute = AdminLoginRouteImport.update({
@@ -126,10 +105,55 @@ const AdminLoginRoute = AdminLoginRouteImport.update({
   path: '/login',
   getParentRoute: () => AdminRoute,
 } as any)
-const AdminInvoicesRoute = AdminInvoicesRouteImport.update({
-  id: '/invoices',
-  path: '/invoices',
+const AdminPosRoute = AdminPosRouteImport.update({
+  id: '/pos',
+  path: '/pos',
   getParentRoute: () => AdminRoute,
+} as any)
+const AdminProductsRoute = AdminProductsRouteImport.update({
+  id: '/products',
+  path: '/products',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminReportsRoute = AdminReportsRouteImport.update({
+  id: '/reports',
+  path: '/reports',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminResetPasswordRoute = AdminResetPasswordRouteImport.update({
+  id: '/reset-password',
+  path: '/reset-password',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminSurveysRoute = AdminSurveysRouteImport.update({
+  id: '/surveys',
+  path: '/surveys',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminTicketsRoute = AdminTicketsRouteImport.update({
+  id: '/tickets',
+  path: '/tickets',
+  getParentRoute: () => AdminRoute,
+} as any)
+const ApiHealthRoute = ApiHealthRouteImport.update({
+  id: '/api/health',
+  path: '/api/health',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CheckoutSuccessRoute = CheckoutSuccessRouteImport.update({
+  id: '/checkout/success',
+  path: '/checkout/success',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminReportsReviewRoute = AdminReportsReviewRouteImport.update({
+  id: '/reports_/review',
+  path: '/reports/review',
+  getParentRoute: () => AdminRoute,
+} as any)
+const ApiDownloadWindowsRoute = ApiDownloadWindowsRouteImport.update({
+  id: '/api/download/windows',
+  path: '/api/download/windows',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const ApiPublicHealthRoute = ApiPublicHealthRouteImport.update({
   id: '/api/public/health',
@@ -143,6 +167,7 @@ export interface FileRoutesByFullPath {
   '/bookstore': typeof BookstoreRoute
   '/cafe': typeof CafeRoute
   '/cart': typeof CartRoute
+  '/download': typeof DownloadRoute
   '/events': typeof EventsRoute
   '/membership': typeof MembershipRoute
   '/souvenirs': typeof SouvenirsRoute
@@ -152,12 +177,15 @@ export interface FileRoutesByFullPath {
   '/admin/login': typeof AdminLoginRoute
   '/admin/pos': typeof AdminPosRoute
   '/admin/products': typeof AdminProductsRoute
+  '/admin/reports': typeof AdminReportsRoute
   '/admin/reset-password': typeof AdminResetPasswordRoute
   '/admin/surveys': typeof AdminSurveysRoute
   '/admin/tickets': typeof AdminTicketsRoute
   '/api/health': typeof ApiHealthRoute
   '/checkout/success': typeof CheckoutSuccessRoute
   '/admin/': typeof AdminIndexRoute
+  '/admin/reports/review': typeof AdminReportsReviewRoute
+  '/api/download/windows': typeof ApiDownloadWindowsRoute
   '/api/public/health': typeof ApiPublicHealthRoute
 }
 export interface FileRoutesByTo {
@@ -165,6 +193,7 @@ export interface FileRoutesByTo {
   '/bookstore': typeof BookstoreRoute
   '/cafe': typeof CafeRoute
   '/cart': typeof CartRoute
+  '/download': typeof DownloadRoute
   '/events': typeof EventsRoute
   '/membership': typeof MembershipRoute
   '/souvenirs': typeof SouvenirsRoute
@@ -174,12 +203,15 @@ export interface FileRoutesByTo {
   '/admin/login': typeof AdminLoginRoute
   '/admin/pos': typeof AdminPosRoute
   '/admin/products': typeof AdminProductsRoute
+  '/admin/reports': typeof AdminReportsRoute
   '/admin/reset-password': typeof AdminResetPasswordRoute
   '/admin/surveys': typeof AdminSurveysRoute
   '/admin/tickets': typeof AdminTicketsRoute
   '/api/health': typeof ApiHealthRoute
   '/checkout/success': typeof CheckoutSuccessRoute
   '/admin': typeof AdminIndexRoute
+  '/admin/reports/review': typeof AdminReportsReviewRoute
+  '/api/download/windows': typeof ApiDownloadWindowsRoute
   '/api/public/health': typeof ApiPublicHealthRoute
 }
 export interface FileRoutesById {
@@ -189,6 +221,7 @@ export interface FileRoutesById {
   '/bookstore': typeof BookstoreRoute
   '/cafe': typeof CafeRoute
   '/cart': typeof CartRoute
+  '/download': typeof DownloadRoute
   '/events': typeof EventsRoute
   '/membership': typeof MembershipRoute
   '/souvenirs': typeof SouvenirsRoute
@@ -198,12 +231,15 @@ export interface FileRoutesById {
   '/admin/login': typeof AdminLoginRoute
   '/admin/pos': typeof AdminPosRoute
   '/admin/products': typeof AdminProductsRoute
+  '/admin/reports': typeof AdminReportsRoute
   '/admin/reset-password': typeof AdminResetPasswordRoute
   '/admin/surveys': typeof AdminSurveysRoute
   '/admin/tickets': typeof AdminTicketsRoute
   '/api/health': typeof ApiHealthRoute
   '/checkout/success': typeof CheckoutSuccessRoute
   '/admin/': typeof AdminIndexRoute
+  '/admin/reports_/review': typeof AdminReportsReviewRoute
+  '/api/download/windows': typeof ApiDownloadWindowsRoute
   '/api/public/health': typeof ApiPublicHealthRoute
 }
 export interface FileRouteTypes {
@@ -214,6 +250,7 @@ export interface FileRouteTypes {
     | '/bookstore'
     | '/cafe'
     | '/cart'
+    | '/download'
     | '/events'
     | '/membership'
     | '/souvenirs'
@@ -223,12 +260,15 @@ export interface FileRouteTypes {
     | '/admin/login'
     | '/admin/pos'
     | '/admin/products'
+    | '/admin/reports'
     | '/admin/reset-password'
     | '/admin/surveys'
     | '/admin/tickets'
     | '/api/health'
     | '/checkout/success'
     | '/admin/'
+    | '/admin/reports/review'
+    | '/api/download/windows'
     | '/api/public/health'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -236,6 +276,7 @@ export interface FileRouteTypes {
     | '/bookstore'
     | '/cafe'
     | '/cart'
+    | '/download'
     | '/events'
     | '/membership'
     | '/souvenirs'
@@ -245,12 +286,15 @@ export interface FileRouteTypes {
     | '/admin/login'
     | '/admin/pos'
     | '/admin/products'
+    | '/admin/reports'
     | '/admin/reset-password'
     | '/admin/surveys'
     | '/admin/tickets'
     | '/api/health'
     | '/checkout/success'
     | '/admin'
+    | '/admin/reports/review'
+    | '/api/download/windows'
     | '/api/public/health'
   id:
     | '__root__'
@@ -259,6 +303,7 @@ export interface FileRouteTypes {
     | '/bookstore'
     | '/cafe'
     | '/cart'
+    | '/download'
     | '/events'
     | '/membership'
     | '/souvenirs'
@@ -268,12 +313,15 @@ export interface FileRouteTypes {
     | '/admin/login'
     | '/admin/pos'
     | '/admin/products'
+    | '/admin/reports'
     | '/admin/reset-password'
     | '/admin/surveys'
     | '/admin/tickets'
     | '/api/health'
     | '/checkout/success'
     | '/admin/'
+    | '/admin/reports_/review'
+    | '/api/download/windows'
     | '/api/public/health'
   fileRoutesById: FileRoutesById
 }
@@ -283,6 +331,7 @@ export interface RootRouteChildren {
   BookstoreRoute: typeof BookstoreRoute
   CafeRoute: typeof CafeRoute
   CartRoute: typeof CartRoute
+  DownloadRoute: typeof DownloadRoute
   EventsRoute: typeof EventsRoute
   MembershipRoute: typeof MembershipRoute
   SouvenirsRoute: typeof SouvenirsRoute
@@ -290,65 +339,17 @@ export interface RootRouteChildren {
   TicketsRoute: typeof TicketsRoute
   ApiHealthRoute: typeof ApiHealthRoute
   CheckoutSuccessRoute: typeof CheckoutSuccessRoute
+  ApiDownloadWindowsRoute: typeof ApiDownloadWindowsRoute
   ApiPublicHealthRoute: typeof ApiPublicHealthRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/tickets': {
-      id: '/tickets'
-      path: '/tickets'
-      fullPath: '/tickets'
-      preLoaderRoute: typeof TicketsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/support': {
-      id: '/support'
-      path: '/support'
-      fullPath: '/support'
-      preLoaderRoute: typeof SupportRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/souvenirs': {
-      id: '/souvenirs'
-      path: '/souvenirs'
-      fullPath: '/souvenirs'
-      preLoaderRoute: typeof SouvenirsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/membership': {
-      id: '/membership'
-      path: '/membership'
-      fullPath: '/membership'
-      preLoaderRoute: typeof MembershipRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/events': {
-      id: '/events'
-      path: '/events'
-      fullPath: '/events'
-      preLoaderRoute: typeof EventsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/cart': {
-      id: '/cart'
-      path: '/cart'
-      fullPath: '/cart'
-      preLoaderRoute: typeof CartRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/cafe': {
-      id: '/cafe'
-      path: '/cafe'
-      fullPath: '/cafe'
-      preLoaderRoute: typeof CafeRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/bookstore': {
-      id: '/bookstore'
-      path: '/bookstore'
-      fullPath: '/bookstore'
-      preLoaderRoute: typeof BookstoreRouteImport
+    '/': {
+      id: '/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/admin': {
@@ -358,11 +359,67 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/': {
-      id: '/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
+    '/bookstore': {
+      id: '/bookstore'
+      path: '/bookstore'
+      fullPath: '/bookstore'
+      preLoaderRoute: typeof BookstoreRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/cafe': {
+      id: '/cafe'
+      path: '/cafe'
+      fullPath: '/cafe'
+      preLoaderRoute: typeof CafeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/cart': {
+      id: '/cart'
+      path: '/cart'
+      fullPath: '/cart'
+      preLoaderRoute: typeof CartRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/download': {
+      id: '/download'
+      path: '/download'
+      fullPath: '/download'
+      preLoaderRoute: typeof DownloadRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/events': {
+      id: '/events'
+      path: '/events'
+      fullPath: '/events'
+      preLoaderRoute: typeof EventsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/membership': {
+      id: '/membership'
+      path: '/membership'
+      fullPath: '/membership'
+      preLoaderRoute: typeof MembershipRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/souvenirs': {
+      id: '/souvenirs'
+      path: '/souvenirs'
+      fullPath: '/souvenirs'
+      preLoaderRoute: typeof SouvenirsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/support': {
+      id: '/support'
+      path: '/support'
+      fullPath: '/support'
+      preLoaderRoute: typeof SupportRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/tickets': {
+      id: '/tickets'
+      path: '/tickets'
+      fullPath: '/tickets'
+      preLoaderRoute: typeof TicketsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/admin/': {
@@ -372,53 +429,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminIndexRouteImport
       parentRoute: typeof AdminRoute
     }
-    '/checkout/success': {
-      id: '/checkout/success'
-      path: '/checkout/success'
-      fullPath: '/checkout/success'
-      preLoaderRoute: typeof CheckoutSuccessRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/health': {
-      id: '/api/health'
-      path: '/api/health'
-      fullPath: '/api/health'
-      preLoaderRoute: typeof ApiHealthRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/admin/tickets': {
-      id: '/admin/tickets'
-      path: '/tickets'
-      fullPath: '/admin/tickets'
-      preLoaderRoute: typeof AdminTicketsRouteImport
-      parentRoute: typeof AdminRoute
-    }
-    '/admin/surveys': {
-      id: '/admin/surveys'
-      path: '/surveys'
-      fullPath: '/admin/surveys'
-      preLoaderRoute: typeof AdminSurveysRouteImport
-      parentRoute: typeof AdminRoute
-    }
-    '/admin/reset-password': {
-      id: '/admin/reset-password'
-      path: '/reset-password'
-      fullPath: '/admin/reset-password'
-      preLoaderRoute: typeof AdminResetPasswordRouteImport
-      parentRoute: typeof AdminRoute
-    }
-    '/admin/products': {
-      id: '/admin/products'
-      path: '/products'
-      fullPath: '/admin/products'
-      preLoaderRoute: typeof AdminProductsRouteImport
-      parentRoute: typeof AdminRoute
-    }
-    '/admin/pos': {
-      id: '/admin/pos'
-      path: '/pos'
-      fullPath: '/admin/pos'
-      preLoaderRoute: typeof AdminPosRouteImport
+    '/admin/invoices': {
+      id: '/admin/invoices'
+      path: '/invoices'
+      fullPath: '/admin/invoices'
+      preLoaderRoute: typeof AdminInvoicesRouteImport
       parentRoute: typeof AdminRoute
     }
     '/admin/login': {
@@ -428,12 +443,75 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminLoginRouteImport
       parentRoute: typeof AdminRoute
     }
-    '/admin/invoices': {
-      id: '/admin/invoices'
-      path: '/invoices'
-      fullPath: '/admin/invoices'
-      preLoaderRoute: typeof AdminInvoicesRouteImport
+    '/admin/pos': {
+      id: '/admin/pos'
+      path: '/pos'
+      fullPath: '/admin/pos'
+      preLoaderRoute: typeof AdminPosRouteImport
       parentRoute: typeof AdminRoute
+    }
+    '/admin/products': {
+      id: '/admin/products'
+      path: '/products'
+      fullPath: '/admin/products'
+      preLoaderRoute: typeof AdminProductsRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/reports': {
+      id: '/admin/reports'
+      path: '/reports'
+      fullPath: '/admin/reports'
+      preLoaderRoute: typeof AdminReportsRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/reset-password': {
+      id: '/admin/reset-password'
+      path: '/reset-password'
+      fullPath: '/admin/reset-password'
+      preLoaderRoute: typeof AdminResetPasswordRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/surveys': {
+      id: '/admin/surveys'
+      path: '/surveys'
+      fullPath: '/admin/surveys'
+      preLoaderRoute: typeof AdminSurveysRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/tickets': {
+      id: '/admin/tickets'
+      path: '/tickets'
+      fullPath: '/admin/tickets'
+      preLoaderRoute: typeof AdminTicketsRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/api/health': {
+      id: '/api/health'
+      path: '/api/health'
+      fullPath: '/api/health'
+      preLoaderRoute: typeof ApiHealthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/checkout/success': {
+      id: '/checkout/success'
+      path: '/checkout/success'
+      fullPath: '/checkout/success'
+      preLoaderRoute: typeof CheckoutSuccessRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/reports_/review': {
+      id: '/admin/reports_/review'
+      path: '/reports/review'
+      fullPath: '/admin/reports/review'
+      preLoaderRoute: typeof AdminReportsReviewRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/api/download/windows': {
+      id: '/api/download/windows'
+      path: '/api/download/windows'
+      fullPath: '/api/download/windows'
+      preLoaderRoute: typeof ApiDownloadWindowsRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/api/public/health': {
       id: '/api/public/health'
@@ -450,10 +528,12 @@ interface AdminRouteChildren {
   AdminLoginRoute: typeof AdminLoginRoute
   AdminPosRoute: typeof AdminPosRoute
   AdminProductsRoute: typeof AdminProductsRoute
+  AdminReportsRoute: typeof AdminReportsRoute
   AdminResetPasswordRoute: typeof AdminResetPasswordRoute
   AdminSurveysRoute: typeof AdminSurveysRoute
   AdminTicketsRoute: typeof AdminTicketsRoute
   AdminIndexRoute: typeof AdminIndexRoute
+  AdminReportsReviewRoute: typeof AdminReportsReviewRoute
 }
 
 const AdminRouteChildren: AdminRouteChildren = {
@@ -461,10 +541,12 @@ const AdminRouteChildren: AdminRouteChildren = {
   AdminLoginRoute: AdminLoginRoute,
   AdminPosRoute: AdminPosRoute,
   AdminProductsRoute: AdminProductsRoute,
+  AdminReportsRoute: AdminReportsRoute,
   AdminResetPasswordRoute: AdminResetPasswordRoute,
   AdminSurveysRoute: AdminSurveysRoute,
   AdminTicketsRoute: AdminTicketsRoute,
   AdminIndexRoute: AdminIndexRoute,
+  AdminReportsReviewRoute: AdminReportsReviewRoute,
 }
 
 const AdminRouteWithChildren = AdminRoute._addFileChildren(AdminRouteChildren)
@@ -475,6 +557,7 @@ const rootRouteChildren: RootRouteChildren = {
   BookstoreRoute: BookstoreRoute,
   CafeRoute: CafeRoute,
   CartRoute: CartRoute,
+  DownloadRoute: DownloadRoute,
   EventsRoute: EventsRoute,
   MembershipRoute: MembershipRoute,
   SouvenirsRoute: SouvenirsRoute,
@@ -482,6 +565,7 @@ const rootRouteChildren: RootRouteChildren = {
   TicketsRoute: TicketsRoute,
   ApiHealthRoute: ApiHealthRoute,
   CheckoutSuccessRoute: CheckoutSuccessRoute,
+  ApiDownloadWindowsRoute: ApiDownloadWindowsRoute,
   ApiPublicHealthRoute: ApiPublicHealthRoute,
 }
 export const routeTree = rootRouteImport

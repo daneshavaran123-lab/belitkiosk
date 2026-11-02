@@ -96,6 +96,8 @@ function CartPage() {
       unitPrice: i.unitPrice,
       discountPercent: i.discountPercent,
       totalPrice: i.totalPrice,
+      itemType: i.type,
+      referenceId: i.referenceId,
     }));
 
   /** چاپ بلیط روی پرینتر حرارتی؛ اگر پرینتر نبود، فرایند متوقف نمی‌شود */

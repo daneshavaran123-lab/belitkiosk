@@ -89,6 +89,35 @@
   }
 }
 
+/* گزارش روزانه: بخش چاپی روی صفحه پنهان است و هنگام چاپ فقط همان نمایش داده می‌شود.
+   (src/components/DailyReportPrint.tsx آن را زیر <body> می‌سازد.)
+   بدون @layer تا از استایل‌های لایه‌ای، مثل html{overflow:hidden}، قوی‌تر باشد. */
+#daily-report-print-root {
+  display: none;
+}
+
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 15mm;
+  }
+  html,
+  body {
+    height: auto !important;
+    overflow: visible !important;
+    background: #fff !important;
+    background-image: none !important;
+    color: #000 !important;
+  }
+  /* فقط وقتی بخش چاپی هست؛ تا چاپ صفحه‌های دیگر خالی نشود */
+  body:has(#daily-report-print-root) > *:not(#daily-report-print-root) {
+    display: none !important;
+  }
+  body:has(#daily-report-print-root) > #daily-report-print-root {
+    display: block !important;
+    height: auto !important;
+  }
+}
 
 @utility museum-bg {
   background-color: var(--museum-navy);
@@ -123,15 +152,31 @@
 }
 
 @keyframes fade-in-up {
-  from { opacity: 0; transform: translateY(20px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 @keyframes scale-in {
-  from { opacity: 0; transform: scale(0.95); }
-  to { opacity: 1; transform: scale(1); }
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
-.animate-fade-in-up { animation: fade-in-up 0.5s ease-out both; }
-.animate-scale-in { animation: scale-in 0.3s ease-out both; }
+.animate-fade-in-up {
+  animation: fade-in-up 0.5s ease-out both;
+}
+.animate-scale-in {
+  animation: scale-in 0.3s ease-out both;
+}
 
 /* ============================================================
    KIOSK LAYOUT (target device: 1080x1920 portrait, no page scroll)

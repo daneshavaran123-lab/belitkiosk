@@ -24,6 +24,8 @@ export type PosAuditKind =
   | "report:copy"
   | "settings:change"
   | "token:change"
+  | "sync:pair"
+  | "sync:disable"
   | "identity:mismatch"
   | "identity:recover"
   | "identity:recovered"
@@ -60,6 +62,8 @@ const LABELS: Record<PosAuditKind, string> = {
   "report:copy": "کپی گزارش پشتیبانی",
   "settings:change": "تغییر تنظیمات دستگاه",
   "token:change": "تغییر توکن دسترسی",
+  "sync:pair": "اتصال کیوسک به گزارش روزانه",
+  "sync:disable": "قطع اتصال کیوسک از گزارش روزانه",
   "identity:mismatch": "ناهمخوانی شناسنامهٔ دستگاه",
   "identity:recover": "شروع بازیابی خودکار شناسنامه",
   "identity:recovered": "بازیابی موفق شناسنامه",
