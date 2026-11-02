@@ -341,6 +341,7 @@ describe("API کنترل", () => {
       messageId: "1",
       behavior: "approve",
       delivered: "same-socket",
+      reply: expect.stringMatching(/^\$POSBUY,0,7000,\d{12},/),
     });
     await control("DELETE", "/requests");
     expect((await control("GET", "/requests")).items).toEqual([]);

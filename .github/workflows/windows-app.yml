@@ -69,6 +69,10 @@ jobs:
       - name: Build Windows package
         run: node scripts/build-windows-app.mjs
 
+      # خود PosBridge.exe بسته‌بندی‌شده روی ویندوز واقعی با کارت‌خوان مجازی (بدون دستگاه واقعی)
+      - name: Card-reader bridge end-to-end (virtual POS)
+        run: node pos-bridge/tools/virtual-pos/bridge-e2e.mjs --bridge release/MuseumKiosk-Windows/pos-bridge/bin/Release/net48/PosBridge.exe
+
       - uses: actions/upload-artifact@v4
         with:
           name: MuseumKiosk-Windows

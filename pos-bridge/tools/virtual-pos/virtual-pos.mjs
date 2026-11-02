@@ -317,6 +317,7 @@ export function createVirtualPos(options = {}) {
       if (b.behavior === "decline") state.declined++;
       else if (!["malformed", "bad-checksum"].includes(b.behavior)) state.approved++;
       entry.replied = b.behavior;
+      entry.reply = reply.data.toString("ascii").replace(/[\r\n]+$/, "");
       deliver(reply, sock, entry);
     });
   }
