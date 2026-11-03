@@ -12,22 +12,22 @@ import { useEffect, type ReactNode } from "react";
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
+import { KioskBackdrop } from "../components/KioskBackdrop";
 
 function NotFoundComponent() {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background px-4">
-      <div className="max-w-md text-center">
-        <h1 className="text-7xl font-bold text-foreground">404</h1>
-        <h2 className="mt-4 text-xl font-semibold text-foreground">Page not found</h2>
-        <p className="mt-2 text-sm text-muted-foreground">
-          The page you're looking for doesn't exist or has been moved.
-        </p>
-        <div className="mt-6">
+    <div className="h-full relative flex items-center justify-center px-4">
+      <KioskBackdrop dim="deep" />
+      <div className="relative z-10 glass-bronze rounded-[2.5rem] max-w-md w-full p-10 text-center animate-scale-in">
+        <h1 className="text-7xl font-black text-bronze-gradient">۴۰۴</h1>
+        <h2 className="mt-4 text-2xl font-black text-white">صفحه پیدا نشد</h2>
+        <p className="mt-2 text-white/70">صفحه‌ای که دنبالش بودید وجود ندارد یا جابه‌جا شده است.</p>
+        <div className="mt-8">
           <Link
             to="/"
-            className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+            className="touch-btn btn-liquid inline-flex items-center justify-center h-14 px-8 rounded-full text-lg font-black"
           >
-            Go home
+            صفحهٔ اصلی
           </Link>
         </div>
       </div>
@@ -43,29 +43,28 @@ function ErrorComponent({ error, reset }: ErrorComponentProps) {
   }, [error]);
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background px-4">
-      <div className="max-w-md text-center">
-        <h1 className="text-xl font-semibold tracking-tight text-foreground">
-          This page didn't load
-        </h1>
-        <p className="mt-2 text-sm text-muted-foreground">
-          Something went wrong on our end. You can try refreshing or head back home.
+    <div className="h-full relative flex items-center justify-center px-4">
+      <KioskBackdrop dim="deep" />
+      <div className="relative z-10 glass-bronze rounded-[2.5rem] max-w-md w-full p-10 text-center animate-scale-in">
+        <h1 className="text-3xl font-black text-bronze-gradient">این صفحه باز نشد</h1>
+        <p className="mt-3 text-white/75 leading-8">
+          مشکلی پیش آمد. دوباره امتحان کنید یا به صفحهٔ اصلی برگردید.
         </p>
-        <div className="mt-6 flex flex-wrap justify-center gap-2">
+        <div className="mt-8 flex flex-wrap justify-center gap-3">
           <button
             onClick={() => {
               router.invalidate();
               reset();
             }}
-            className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+            className="touch-btn btn-liquid inline-flex items-center justify-center h-14 px-8 rounded-full text-lg font-black"
           >
-            Try again
+            تلاش دوباره
           </button>
           <a
             href="/"
-            className="inline-flex items-center justify-center rounded-md border border-input bg-background px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent"
+            className="touch-btn glass-chip inline-flex items-center justify-center h-14 px-8 rounded-full text-lg font-black text-white"
           >
-            Go home
+            صفحهٔ اصلی
           </a>
         </div>
       </div>
@@ -110,11 +109,12 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { rel: "manifest", href: "/manifest.webmanifest" },
       { rel: "apple-touch-icon", href: "/apple-touch-icon.png", sizes: "180x180" },
 
-      { rel: "preconnect", href: "https://fonts.googleapis.com" },
-      { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
       {
-        rel: "stylesheet",
-        href: "https://fonts.googleapis.com/css2?family=Vazirmatn:wght@300;400;500;600;700;800;900&display=swap",
+        rel: "preload",
+        href: "/fonts/Vazirmatn-Variable.woff2",
+        as: "font",
+        type: "font/woff2",
+        crossOrigin: "anonymous",
       },
     ],
   }),

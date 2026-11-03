@@ -12,8 +12,8 @@ interface Props {
 export function ComingSoonPage({ title, icon: Icon, description, accent }: Props) {
   return (
     <PageShell title={title}>
-      <section className="max-w-2xl mx-auto px-6 py-10">
-        <div className="glass-bronze rounded-3xl p-10 text-center space-y-6 animate-fade-in-up relative overflow-hidden">
+      <section className="max-w-2xl mx-auto px-6 py-10 min-h-full flex flex-col justify-center">
+        <div className="glass-bronze rounded-[2.5rem] p-10 text-center space-y-6 animate-fade-in-up relative overflow-hidden">
           <div
             className="absolute top-0 inset-x-0 h-1"
             style={{ background: `linear-gradient(90deg, ${accent}, #cd7f32)` }}

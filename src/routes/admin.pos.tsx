@@ -1843,7 +1843,7 @@ function PrinterCard() {
           <select
             value={selected}
             onChange={(e) => setSelected(e.target.value)}
-            className="w-full h-11 rounded-xl bg-black/30 border border-primary/20 px-3 text-bronze-light"
+            className="w-full h-11 rounded-xl glass-well px-3 text-bronze-light"
           >
             <option value="">پرینتر پیش‌فرض ویندوز</option>
             {printers.map((p) => (

@@ -1,6 +1,6 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
-import { Heart, Star, Send, ArrowRight, CheckCircle2 } from "lucide-react";
+import { Heart, Star, Send, CheckCircle2 } from "lucide-react";
 import { z } from "zod";
 import { toast } from "sonner";
 import { Toaster } from "@/components/ui/sonner";
@@ -8,7 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { formatToman, formatTomanShort } from "@/lib/money";
 
-import museumBg from "@/assets/museum-hall-bg.jpg";
+import { PageShell } from "@/components/PageShell";
 
 export const Route = createFileRoute("/support")({
   head: () => ({
@@ -69,7 +69,6 @@ function StarRow({
 }
 
 function SupportPage() {
-  const navigate = useNavigate();
   const [amount, setAmount] = useState<number>(100000);
   const [customAmount, setCustomAmount] = useState<string>("");
   const [overall, setOverall] = useState(0);
@@ -113,33 +112,10 @@ function SupportPage() {
   };
 
   return (
-    <div className="min-h-screen relative">
-      <div
-        className="fixed inset-0 z-0 bg-cover bg-center"
-        style={{ backgroundImage: `url(${museumBg})` }}
-        aria-hidden
-      />
-      <div
-        className="fixed inset-0 z-0"
-        style={{
-          background: "linear-gradient(180deg, rgba(3,8,15,0.75) 0%, rgba(3,8,15,0.9) 100%)",
-        }}
-        aria-hidden
-      />
+    <PageShell title="حمایت و نظرسنجی" showCart={false}>
       <Toaster position="top-center" richColors />
 
-      <header className="relative z-10 max-w-4xl mx-auto px-6 pt-6 flex items-center justify-between">
-        <button
-          onClick={() => navigate({ to: "/" })}
-          className="touch-btn glass-bronze rounded-2xl px-4 py-3 flex items-center gap-2 text-bronze-light"
-        >
-          <ArrowRight className="w-5 h-5" />
-          بازگشت
-        </button>
-        <h1 className="text-2xl md:text-3xl font-black text-bronze-gradient">حمایت و نظرسنجی</h1>
-      </header>
-
-      <main className="relative z-10 max-w-4xl mx-auto px-6 py-8 grid gap-6 md:grid-cols-2">
+      <div className="max-w-4xl mx-auto px-6 py-8 grid gap-6 md:grid-cols-2 items-start">
         {/* Donation */}
         <section className="glass-bronze rounded-3xl p-6 animate-fade-in-up">
           <div className="flex items-center gap-3 mb-4">
@@ -183,7 +159,7 @@ function SupportPage() {
             value={customAmount}
             onChange={(e) => setCustomAmount(e.target.value)}
             placeholder="مبلغ دلخواه (تومان)"
-            className="w-full h-12 rounded-xl px-4 bg-black/40 border border-primary/30 text-bronze-light placeholder:text-bronze-light/40 focus:outline-none focus:border-primary"
+            className="w-full h-12 rounded-xl px-4 glass-well text-bronze-light placeholder:text-bronze-light/40 focus:outline-none focus:border-primary"
             dir="ltr"
           />
           <Button
@@ -226,14 +202,14 @@ function SupportPage() {
                 value={name}
                 onChange={(e) => setName(e.target.value.slice(0, 80))}
                 placeholder="نام (اختیاری)"
-                className="w-full h-12 rounded-xl px-4 bg-black/40 border border-primary/30 text-bronze-light placeholder:text-bronze-light/40 focus:outline-none focus:border-primary"
+                className="w-full h-12 rounded-xl px-4 glass-well text-bronze-light placeholder:text-bronze-light/40 focus:outline-none focus:border-primary"
               />
               <textarea
                 value={comment}
                 onChange={(e) => setComment(e.target.value.slice(0, 1000))}
                 placeholder="نظر یا پیشنهاد شما (اختیاری)"
                 rows={4}
-                className="w-full rounded-xl p-4 bg-black/40 border border-primary/30 text-bronze-light placeholder:text-bronze-light/40 focus:outline-none focus:border-primary resize-none"
+                className="w-full rounded-xl p-4 glass-well text-bronze-light placeholder:text-bronze-light/40 focus:outline-none focus:border-primary resize-none"
               />
               <Button
                 onClick={submitSurvey}
@@ -247,7 +223,7 @@ function SupportPage() {
             </div>
           )}
         </section>
-      </main>
-    </div>
+      </div>
+    </PageShell>
   );
 }

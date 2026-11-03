@@ -206,7 +206,7 @@ function AdminTicketsPage() {
                   onChange={(e) =>
                     setForm({ ...form, category: e.target.value as Ticket["category"] })
                   }
-                  className="w-full h-10 rounded-md bg-black/40 border border-primary/30 text-white px-3"
+                  className="w-full h-10 rounded-md glass-well text-white px-3"
                 >
                   <option value="normal">عادی</option>
                   <option value="guided">با راهنما</option>

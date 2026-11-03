@@ -37,7 +37,7 @@ export function ImageUploadField({ value, section, onChange }: Props) {
     <div className="space-y-2">
       <Label className="text-bronze-light">تصویر محصول</Label>
       <div className="flex items-center gap-3">
-        <div className="w-20 h-20 rounded-xl overflow-hidden border border-primary/25 bg-black/40 flex items-center justify-center shrink-0">
+        <div className="w-20 h-20 rounded-xl overflow-hidden border glass-well flex items-center justify-center shrink-0">
           {preview ? (
             <img src={preview} alt="پیش‌نمایش" className="w-full h-full object-cover" />
           ) : (

@@ -141,7 +141,7 @@ export function PosProtocolCard() {
           <select
             value={protocol}
             onChange={(e) => setProtocol(e.target.value as PosProtocol)}
-            className="w-full h-11 rounded-xl bg-black/30 border border-primary/20 px-3 text-bronze-light"
+            className="w-full h-11 rounded-xl glass-well px-3 text-bronze-light"
           >
             <option value="native">مستقیم در سرویس پل (پیشنهادی)</option>
             <option value="sdk">کتابخانهٔ رسمی PosInterface.dll</option>
@@ -152,7 +152,7 @@ export function PosProtocolCard() {
           <select
             value={timeoutSeconds}
             onChange={(e) => setTimeoutSeconds(Number(e.target.value))}
-            className="w-full h-11 rounded-xl bg-black/30 border border-primary/20 px-3 text-bronze-light"
+            className="w-full h-11 rounded-xl glass-well px-3 text-bronze-light"
           >
             {[60, 90, 120, 150, 180].map((s) => (
               <option key={s} value={s}>

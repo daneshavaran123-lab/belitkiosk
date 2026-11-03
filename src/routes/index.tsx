@@ -3,8 +3,9 @@ import { useCartStore } from "@/store/cartStore";
 import { ShoppingCart, Globe, Ticket, Settings } from "lucide-react";
 import { toast } from "sonner";
 import { Toaster } from "@/components/ui/sonner";
+import { KioskBackdrop } from "@/components/KioskBackdrop";
+import { formatNumber } from "@/lib/money";
 
-import museumBg from "@/assets/museum-hall-bg.jpg";
 import federationLogo from "@/assets/federation-logo.png";
 import ticketHero from "@/assets/ticket-hero.png";
 import iconBooks from "@/assets/icon-books.png";
@@ -98,107 +99,106 @@ function Home() {
 
   return (
     <div className="kiosk-root">
-      {/* Museum hall background */}
-      <div
-        className="fixed inset-0 z-0 bg-cover bg-center"
-        style={{ backgroundImage: `url(${museumBg})` }}
-        aria-hidden
-      />
-      <div
-        className="fixed inset-0 z-0"
-        style={{
-          background:
-            "linear-gradient(180deg, rgba(3,8,15,0.55) 0%, rgba(3,8,15,0.7) 50%, rgba(3,8,15,0.9) 100%)",
-        }}
-        aria-hidden
-      />
+      <KioskBackdrop dim="soft" />
 
       <Toaster position="top-center" richColors />
 
       {/* Top bar */}
-      <header className="relative z-10 shrink-0 w-full flex items-center justify-between px-6 pt-6 max-w-6xl mx-auto">
-        <button
-          onClick={() => toast("به‌زودی به دو زبان در دسترس خواهد بود")}
-          className="touch-btn glass-bronze rounded-2xl px-4 py-3 flex items-center gap-2 text-bronze-light hover:brightness-110 transition"
-          aria-label="تغییر زبان"
-        >
-          <Globe className="w-5 h-5" />
-          <span className="font-bold">EN</span>
-        </button>
-        <div className="flex items-center gap-2">
+      <header className="relative z-10 shrink-0 w-full max-w-6xl mx-auto px-5 pt-5">
+        <div className="flex items-center justify-between">
           <button
-            onClick={() => navigate({ to: "/admin/login" })}
-            title="ورود به پنل مدیریت"
-            aria-label="ورود به پنل مدیریت"
-            className="touch-btn glass-bronze rounded-2xl p-3 text-bronze-light hover:brightness-110 hover:rotate-45 transition-all duration-500"
+            onClick={() => toast("به‌زودی به دو زبان در دسترس خواهد بود")}
+            className="touch-btn glass rounded-full h-14 px-6 flex items-center gap-2 text-white font-bold hover:brightness-125"
+            aria-label="تغییر زبان"
           >
-            <Settings className="w-5 h-5" />
+            <Globe className="w-5 h-5" />
+            <span>EN</span>
           </button>
-          <button
-            onClick={() => navigate({ to: "/cart" })}
-            className="touch-btn glass-bronze rounded-2xl px-4 py-3 relative text-bronze-light hover:brightness-110 transition"
-            aria-label="سبد خرید"
-          >
-            <ShoppingCart className="w-6 h-6" />
-            {itemCount > 0 && (
-              <span
-                className="absolute -top-2 -right-2 min-w-[24px] h-6 px-1.5 rounded-full bg-red-500 text-white text-xs font-black flex items-center justify-center ring-2"
-                style={{ boxShadow: "0 0 0 2px var(--museum-navy)" }}
-              >
-                {itemCount}
-              </span>
-            )}
-          </button>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => navigate({ to: "/cart" })}
+              className="touch-btn glass rounded-full h-14 w-14 relative flex items-center justify-center text-white hover:brightness-125"
+              aria-label="سبد خرید"
+            >
+              <ShoppingCart className="w-6 h-6" />
+              {itemCount > 0 && (
+                <span
+                  className="btn-liquid absolute -top-1.5 -right-1.5 min-w-[1.6rem] h-[1.6rem] px-1.5 rounded-full text-xs font-black flex items-center justify-center animate-pop-in"
+                  style={{ boxShadow: "0 0 0 2px rgba(3,8,15,0.9), 0 6px 14px rgba(0,0,0,0.4)" }}
+                >
+                  {formatNumber(itemCount)}
+                </span>
+              )}
+            </button>
+            <button
+              onClick={() => navigate({ to: "/admin/login" })}
+              title="ورود به پنل مدیریت"
+              aria-label="ورود به پنل مدیریت"
+              className="touch-btn glass rounded-full h-14 w-14 flex items-center justify-center text-white/70 hover:text-white hover:rotate-45 transition-all duration-500"
+            >
+              <Settings className="w-5 h-5" />
+            </button>
+          </div>
         </div>
       </header>
 
       <div className="kiosk-body relative z-10 w-full flex flex-col justify-start">
         {/* Hero: logo & title */}
-        <section className="relative z-10 flex flex-col items-center text-center pt-4 pb-6 px-6">
-          <img
-            src={federationLogo}
-            alt="نشان فدراسیون کشتی جمهوری اسلامی ایران"
-            width={1024}
-            height={1024}
-            className="w-32 h-32 md:w-44 md:h-44 object-contain drop-shadow-[0_0_40px_rgba(205,127,50,0.5)]"
-          />
+        <section className="relative z-10 flex flex-col items-center text-center pt-2 pb-6 px-6">
+          <div className="relative">
+            <span
+              className="absolute inset-[-14%] rounded-full animate-ring-pulse border border-[#e0a572]/40"
+              aria-hidden
+            />
+            <img
+              src={federationLogo}
+              alt="نشان فدراسیون کشتی جمهوری اسلامی ایران"
+              width={1024}
+              height={1024}
+              className="relative w-32 h-32 md:w-44 md:h-44 object-contain drop-shadow-[0_0_44px_rgba(235,150,60,0.6)]"
+            />
+          </div>
           <h1 className="mt-4 text-4xl md:text-5xl font-black text-bronze-gradient tracking-tight">
             موزه کشتی ایران
           </h1>
-          <p className="mt-2 text-sm md:text-base tracking-[0.3em] text-bronze-light/70 font-medium">
+          <p className="mt-2 text-sm md:text-base tracking-[0.3em] text-white/60 font-medium">
             IRAN WRESTLING MUSEUM
           </p>
-          <div className="mt-3 w-2 h-2 rotate-45" style={{ background: "#cd7f32" }} />
+          <div
+            className="mt-4 h-px w-40"
+            style={{ background: "linear-gradient(90deg, transparent, #e0a572, transparent)" }}
+          />
         </section>
 
         {/* Featured ticket card */}
         <section className="relative z-10 w-full max-w-4xl mx-auto px-6">
-          <div className="glass-bronze rounded-[32px] p-6 md:p-10 flex flex-col md:flex-row-reverse items-center gap-6 md:gap-10 animate-fade-in-up">
+          <div className="glass-bronze rounded-[2.5rem] p-6 md:p-10 flex flex-col md:flex-row-reverse items-center gap-6 md:gap-10 animate-fade-in-up">
             <div className="shrink-0">
               <img
                 src={ticketHero}
                 alt="بلیط موزه"
                 width={1024}
                 height={1024}
-                className="w-44 h-44 md:w-60 md:h-60 object-contain drop-shadow-[0_20px_60px_rgba(205,127,50,0.45)]"
+                className="w-44 h-44 md:w-60 md:h-60 object-contain drop-shadow-[0_24px_60px_rgba(235,150,60,0.55)]"
               />
             </div>
             <div className="flex-1 text-right">
               <h2 className="text-5xl md:text-6xl font-black text-bronze-gradient leading-tight">
                 فروش بلیط
               </h2>
-              <p className="mt-3 text-bronze-light/70 text-lg font-medium">
+              <p className="mt-3 text-white/75 text-lg font-medium">
                 همین امروز بازدید خود را آغاز کنید.
               </p>
               <Link
                 to="/tickets"
-                className="touch-btn mt-6 inline-flex items-center gap-3 px-8 py-4 rounded-full text-lg font-black text-primary-foreground shadow-2xl transition-all hover:brightness-110 hover:-translate-y-0.5"
-                style={{
-                  background: "linear-gradient(135deg, #f5c98a, #cd7f32 40%, #8b5a2b)",
-                  boxShadow: "0 10px 30px rgba(205,127,50,0.35)",
-                }}
+                className="touch-btn btn-liquid relative overflow-hidden mt-6 inline-flex items-center gap-3 px-10 h-[4.5rem] rounded-full text-xl font-black hover:brightness-105"
               >
-                <Ticket className="w-6 h-6" />
+                <span
+                  className="pointer-events-none absolute inset-y-0 w-1/4 bg-white/45 blur-md"
+                  style={{ animation: "sheen-sweep 3.6s ease-in-out 1.2s infinite" }}
+                  aria-hidden
+                />
+                <Ticket className="w-7 h-7" />
                 خرید بلیط
               </Link>
             </div>
@@ -212,23 +212,29 @@ function Home() {
               <Link
                 key={t.label}
                 to={t.to}
-                className="touch-btn group relative rounded-3xl p-6 flex flex-col items-center justify-center gap-3 aspect-[4/3] overflow-hidden transition-all hover:-translate-y-1 animate-fade-in-up"
+                className="touch-btn group relative rounded-[2rem] p-6 flex flex-col items-center justify-center gap-3 aspect-[4/3] overflow-hidden hover:-translate-y-1 hover:brightness-110 animate-fade-in-up"
                 style={{
-                  background: `linear-gradient(135deg, ${t.from}, ${t.to_color})`,
-                  boxShadow: `0 12px 30px rgba(0,0,0,0.35), inset 0 0 40px ${t.glow}22`,
-                  animationDelay: `${i * 60}ms`,
-                  border: `1px solid ${t.glow}33`,
+                  background: `radial-gradient(130% 90% at 50% 0%, ${t.glow}45, transparent 62%), linear-gradient(150deg, ${t.from}b0, ${t.to_color}a0)`,
+                  WebkitBackdropFilter: "blur(24px) saturate(1.7)",
+                  backdropFilter: "blur(24px) saturate(1.7)",
+                  boxShadow: `inset 1px 1.5px 0 rgba(255,255,255,0.5), inset -1px -1px 0 ${t.glow}55, inset 0 0 44px ${t.glow}28, 0 26px 44px -16px rgba(0,0,0,0.7)`,
+                  animationDelay: `${i * 70}ms`,
+                  border: `1px solid ${t.glow}55`,
                 }}
               >
+                <span
+                  className="pointer-events-none absolute inset-x-0 top-0 h-1/2 bg-gradient-to-b from-white/20 to-transparent"
+                  aria-hidden
+                />
                 <img
                   src={t.icon}
                   alt=""
                   loading="lazy"
                   width={512}
                   height={512}
-                  className="w-16 h-16 md:w-20 md:h-20 object-contain drop-shadow-[0_6px_18px_rgba(0,0,0,0.5)]"
+                  className="relative w-16 h-16 md:w-20 md:h-20 object-contain drop-shadow-[0_8px_20px_rgba(0,0,0,0.55)] group-hover:scale-110 transition-transform duration-300"
                 />
-                <span className="text-white font-extrabold text-base md:text-lg text-center">
+                <span className="relative text-white font-extrabold text-base md:text-lg text-center">
                   {t.label}
                 </span>
               </Link>
@@ -237,7 +243,7 @@ function Home() {
         </section>
       </div>
 
-      <footer className="relative z-10 shrink-0 text-center text-bronze-light/40 text-xs py-4">
+      <footer className="relative z-10 shrink-0 text-center text-white/40 text-xs py-4">
         © فدراسیون کشتی جمهوری اسلامی ایران
       </footer>
     </div>

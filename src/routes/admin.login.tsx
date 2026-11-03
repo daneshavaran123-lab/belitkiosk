@@ -99,7 +99,7 @@ function AdminLoginPage() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="you@example.com"
-              className="h-12 bg-black/40 border-primary/30 text-white"
+              className="h-12  text-white"
               dir="ltr"
             />
           </div>
@@ -113,7 +113,7 @@ function AdminLoginPage() {
               required
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="h-12 bg-black/40 border-primary/30 text-white"
+              className="h-12  text-white"
               dir="ltr"
             />
           </div>
@@ -168,7 +168,7 @@ function AdminLoginPage() {
                 dir="ltr"
                 value={resetEmail}
                 onChange={(e) => setResetEmail(e.target.value)}
-                className="h-12 bg-black/40 border-primary/30 text-white"
+                className="h-12  text-white"
               />
             </div>
             <DialogFooter>
