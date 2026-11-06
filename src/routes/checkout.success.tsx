@@ -80,7 +80,7 @@ function SuccessPage() {
                 background:
                   "radial-gradient(circle at 30% 25%, #d1fae5, #4ade80 40%, #16a34a 75%, #14532d)",
                 boxShadow:
-                  "inset 0 2px 0 rgba(255,255,255,0.7), inset 0 -5px 12px rgba(5,60,30,0.5), 0 20px 50px rgba(34,197,94,0.45)",
+                  "inset 0 2px 0 rgba(255,255,255,0.55), inset 0 -5px 12px rgba(5,60,30,0.45), 0 12px 28px rgba(34,197,94,0.28)",
               }}
             >
               <CheckCircle2 className="w-16 h-16 text-white" strokeWidth={2.5} />
@@ -96,7 +96,7 @@ function SuccessPage() {
 
           <div
             ref={qrBox}
-            className="bg-white rounded-3xl p-5 inline-block mx-auto shadow-[0_24px_60px_-12px_rgba(0,0,0,0.7)] ring-4 ring-white/30"
+            className="bg-white rounded-3xl p-5 inline-block mx-auto shadow-[0_16px_36px_-12px_rgba(0,0,0,0.6)] ring-4 ring-white/20"
           >
             <QRCodeSVG value={ticketQrValue(invoice)} size={180} level="M" />
           </div>

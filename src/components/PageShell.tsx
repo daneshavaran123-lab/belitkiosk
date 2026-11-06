@@ -36,7 +36,7 @@ export function PageShell({ title, backTo = "/", showCart = true, children }: Pa
             <img
               src={federationLogo}
               alt="نشان فدراسیون"
-              className="w-14 h-14 object-contain drop-shadow-[0_0_18px_rgba(205,127,50,0.6)] group-hover:scale-105 transition"
+              className="w-14 h-14 object-contain drop-shadow-[0_0_10px_rgba(205,127,50,0.3)] group-hover:scale-105 transition"
             />
             <h1 className="hidden sm:block text-xl md:text-2xl font-black text-bronze-gradient truncate">
               {title}
