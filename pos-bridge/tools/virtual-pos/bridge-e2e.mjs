@@ -46,15 +46,26 @@ const ok = (name, cond, extra = "") => {
   else failed++;
 };
 
-const freePort = () =>
-  new Promise((resolve, reject) => {
-    const s = net.createServer();
-    s.once("error", reject);
-    s.listen(0, "127.0.0.1", () => {
-      const { port } = s.address();
-      s.close(() => resolve(port));
+// پورت آزادِ دلخواه. پورت‌های قبلاً داده‌شده دوباره داده نمی‌شوند: ویندوز ممکن است پورتی را که همین الان
+// آزاد شده بلافاصله دوباره بدهد و آن‌وقت پورت HTTP سرویس با پورت پاسخ برگشتی یکی می‌شود.
+const handedOut = new Set();
+const freePort = async () => {
+  for (let i = 0; i < 50; i++) {
+    const port = await new Promise((resolve, reject) => {
+      const s = net.createServer();
+      s.once("error", reject);
+      s.listen(0, "127.0.0.1", () => {
+        const { port } = s.address();
+        s.close(() => resolve(port));
+      });
     });
-  });
+    if (!handedOut.has(port)) {
+      handedOut.add(port);
+      return port;
+    }
+  }
+  throw new Error("پورت آزاد پیدا نشد");
+};
 
 /* ------------------------------ سرویس پل ------------------------------ */
 
@@ -99,14 +110,29 @@ async function startBridge(over = {}) {
     process.platform === "win32"
       ? spawn(path.join(work, name), [], { cwd: work, stdio: ["ignore", out, out], env })
       : spawn("mono", [name], { cwd: work, stdio: ["ignore", out, out], env });
-  for (let i = 0; i < 100; i++) {
+  for (let i = 0; i < 240; i++) {
     try {
       if ((await fetch(`${base}/health`)).ok) return cfg;
     } catch {
       /* هنوز بالا نیامده */
     }
+    if (proc.exitCode !== null) break; // سرویس خودش بسته شده؛ منتظر ماندن فایده ندارد
     await sleep(250);
   }
+  // علت را در خروجی (مثلاً لاگ CI) بگذار؛ پوشهٔ موقت روی ماشین CI بعداً در دسترس نیست
+  let tail = "";
+  try {
+    tail = fs
+      .readFileSync(path.join(work, "bridge.log"), "utf8")
+      .split(/\r?\n/)
+      .slice(-40)
+      .join("\n");
+  } catch {
+    tail = "(bridge.log خوانده نشد)";
+  }
+  console.error(
+    `--- bridge.log (listen ${base}, callback ${cfg.callbackPort}, device ${cfg.devicePort}, exitCode ${proc.exitCode}) ---\n${tail}\n---`,
+  );
   throw new Error(`سرویس پل بالا نیامد؛ ${path.join(work, "bridge.log")} را ببینید`);
 }
 async function stopBridge() {
@@ -153,7 +179,13 @@ const journal = () => {
 /* ------------------------------ دستگاه مجازی ------------------------------ */
 
 async function startDevice(over = {}) {
-  const pos = createVirtualPos({ port: 0, controlPort: -1, delayMs: 300, log: false, ...over });
+  const pos = createVirtualPos({
+    port: await freePort(),
+    controlPort: -1,
+    delayMs: 300,
+    log: false,
+    ...over,
+  });
   const addr = await pos.start();
   const control = async (method, p, body) =>
     (
