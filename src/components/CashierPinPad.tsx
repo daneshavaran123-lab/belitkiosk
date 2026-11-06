@@ -80,7 +80,7 @@ export function CashierPinPad({
           {Array.from({ length: Math.max(MIN_DIGITS, pin.length) }).map((_, i) => (
             <span
               key={i}
-              className={`w-5 h-5 rounded-full border-2 border-[#f0b868]/70 transition-all duration-200 ${i < pin.length ? "bg-[radial-gradient(circle_at_30%_25%,#fff0d2,#e0a057_55%,#9a5a1c)] scale-110 shadow-[0_0_14px_rgb(240_184_104/0.7)]" : ""}`}
+              className={`w-5 h-5 rounded-full border-2 border-[#f0b868]/70 transition-all duration-200 ${i < pin.length ? "bg-[radial-gradient(circle_at_30%_25%,#fff0d2,#e0a057_55%,#9a5a1c)] scale-110 shadow-[0_0_8px_rgb(240_184_104/0.45)]" : ""}`}
             />
           ))}
         </div>

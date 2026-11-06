@@ -415,7 +415,7 @@ function CartPage() {
                   background:
                     "radial-gradient(circle at 30% 25%, #fff0d2, #f0b868 35%, #cd7f32 70%, #8b5a2b)",
                   boxShadow:
-                    "inset 0 2px 0 rgba(255,255,255,0.7), inset 0 -4px 10px rgba(120,60,10,0.45), 0 18px 44px rgba(205,127,50,0.55)",
+                    "inset 0 2px 0 rgba(255,255,255,0.55), inset 0 -4px 10px rgba(120,60,10,0.4), 0 12px 26px rgba(205,127,50,0.3)",
                 }}
               >
                 {method === "card" ? (
@@ -575,7 +575,7 @@ function CartPage() {
                   aria-pressed={method === key}
                   className={`touch-btn relative flex flex-col items-center gap-3 p-6 rounded-[2rem] transition disabled:opacity-40 ${
                     method === key
-                      ? "glass-bronze !border-[#f0b868] shadow-[0_0_0_2px_rgb(240_184_104/0.55),0_20px_44px_-12px_rgb(205_127_50/0.55)]"
+                      ? "glass-bronze !border-[#f0b868] shadow-[0_0_0_2px_rgb(240_184_104/0.5),0_12px_26px_-12px_rgb(205_127_50/0.38)]"
                       : "glass hover:brightness-125"
                   }`}
                 >

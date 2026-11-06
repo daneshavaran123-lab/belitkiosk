@@ -89,7 +89,7 @@ function TicketsPage() {
                         background:
                           "radial-gradient(circle at 30% 25%, #fff0d2, #f0b868 35%, #cd7f32 70%, #8b5a2b)",
                         boxShadow:
-                          "inset 0 2px 0 rgba(255,255,255,0.7), inset 0 -4px 10px rgba(120,60,10,0.45), 0 16px 36px rgba(205,127,50,0.5)",
+                          "inset 0 2px 0 rgba(255,255,255,0.55), inset 0 -4px 10px rgba(120,60,10,0.4), 0 10px 22px rgba(205,127,50,0.28)",
                       }}
                     >
                       <Icon className="w-11 h-11 text-[#2a1606]" strokeWidth={2.2} />
@@ -135,7 +135,7 @@ function TicketsPage() {
                   background:
                     "radial-gradient(circle at 30% 25%, #fff0d2, #f0b868 35%, #cd7f32 70%, #8b5a2b)",
                   boxShadow:
-                    "inset 0 2px 0 rgba(255,255,255,0.7), inset 0 -4px 10px rgba(120,60,10,0.45), 0 16px 36px rgba(205,127,50,0.5)",
+                    "inset 0 2px 0 rgba(255,255,255,0.55), inset 0 -4px 10px rgba(120,60,10,0.4), 0 10px 22px rgba(205,127,50,0.28)",
                 }}
               >
                 {(() => {

@@ -147,7 +147,7 @@ function Home() {
         <section className="relative z-10 flex flex-col items-center text-center pt-2 pb-6 px-6">
           <div className="relative">
             <span
-              className="absolute inset-[-14%] rounded-full animate-ring-pulse border border-[#e0a572]/40"
+              className="absolute inset-[-14%] rounded-full animate-ring-pulse border border-[#e0a572]/20"
               aria-hidden
             />
             <img
@@ -155,7 +155,7 @@ function Home() {
               alt="نشان فدراسیون کشتی جمهوری اسلامی ایران"
               width={1024}
               height={1024}
-              className="relative w-32 h-32 md:w-44 md:h-44 object-contain drop-shadow-[0_0_44px_rgba(235,150,60,0.6)]"
+              className="relative w-32 h-32 md:w-44 md:h-44 object-contain drop-shadow-[0_0_24px_rgba(235,150,60,0.3)]"
             />
           </div>
           <h1 className="mt-4 text-4xl md:text-5xl font-black text-bronze-gradient tracking-tight">
@@ -179,7 +179,7 @@ function Home() {
                 alt="بلیط موزه"
                 width={1024}
                 height={1024}
-                className="w-44 h-44 md:w-60 md:h-60 object-contain drop-shadow-[0_24px_60px_rgba(235,150,60,0.55)]"
+                className="w-44 h-44 md:w-60 md:h-60 object-contain drop-shadow-[0_16px_36px_rgba(235,150,60,0.28)]"
               />
             </div>
             <div className="flex-1 text-right">
@@ -194,7 +194,7 @@ function Home() {
                 className="touch-btn btn-liquid relative overflow-hidden mt-6 inline-flex items-center gap-3 px-10 h-[4.5rem] rounded-full text-xl font-black hover:brightness-105"
               >
                 <span
-                  className="pointer-events-none absolute inset-y-0 w-1/4 bg-white/45 blur-md"
+                  className="pointer-events-none absolute inset-y-0 w-1/4 bg-white/25 blur-sm"
                   style={{ animation: "sheen-sweep 3.6s ease-in-out 1.2s infinite" }}
                   aria-hidden
                 />
@@ -214,16 +214,16 @@ function Home() {
                 to={t.to}
                 className="touch-btn group relative rounded-[2rem] p-6 flex flex-col items-center justify-center gap-3 aspect-[4/3] overflow-hidden hover:-translate-y-1 hover:brightness-110 animate-fade-in-up"
                 style={{
-                  background: `radial-gradient(130% 90% at 50% 0%, ${t.glow}45, transparent 62%), linear-gradient(150deg, ${t.from}b0, ${t.to_color}a0)`,
-                  WebkitBackdropFilter: "blur(24px) saturate(1.7)",
-                  backdropFilter: "blur(24px) saturate(1.7)",
-                  boxShadow: `inset 1px 1.5px 0 rgba(255,255,255,0.5), inset -1px -1px 0 ${t.glow}55, inset 0 0 44px ${t.glow}28, 0 26px 44px -16px rgba(0,0,0,0.7)`,
+                  background: `radial-gradient(130% 90% at 50% 0%, ${t.glow}2e, transparent 62%), linear-gradient(150deg, ${t.from}b0, ${t.to_color}a0)`,
+                  WebkitBackdropFilter: "blur(12px) saturate(1.2)",
+                  backdropFilter: "blur(12px) saturate(1.2)",
+                  boxShadow: `inset 0 1px 0 rgba(255,255,255,0.34), inset 0 0 26px ${t.glow}14, 0 18px 34px -14px rgba(0,0,0,0.6)`,
                   animationDelay: `${i * 70}ms`,
-                  border: `1px solid ${t.glow}55`,
+                  border: `1px solid ${t.glow}44`,
                 }}
               >
                 <span
-                  className="pointer-events-none absolute inset-x-0 top-0 h-1/2 bg-gradient-to-b from-white/20 to-transparent"
+                  className="pointer-events-none absolute inset-x-0 top-0 h-1/2 bg-gradient-to-b from-white/12 to-transparent"
                   aria-hidden
                 />
                 <img
@@ -232,7 +232,7 @@ function Home() {
                   loading="lazy"
                   width={512}
                   height={512}
-                  className="relative w-16 h-16 md:w-20 md:h-20 object-contain drop-shadow-[0_8px_20px_rgba(0,0,0,0.55)] group-hover:scale-110 transition-transform duration-300"
+                  className="relative w-16 h-16 md:w-20 md:h-20 object-contain drop-shadow-[0_6px_14px_rgba(0,0,0,0.5)] group-hover:scale-110 transition-transform duration-300"
                 />
                 <span className="relative text-white font-extrabold text-base md:text-lg text-center">
                   {t.label}
