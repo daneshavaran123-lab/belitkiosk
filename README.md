@@ -356,7 +356,9 @@ flowchart LR
 
 ## 9. Auth & Roles
 
-- ادمین پیش‌فرض: `daneshavaran2@gmail.com` / `123456789` (پس از اولین ورود در داشبورد عوض کنید).
+- ادمین: `daneshavaran2@gmail.com`. رمز پیش‌فرض قدیمی و حساب‌های تستِ seed در تاریخچهٔ عمومی مخزن دیده می‌شوند؛
+  روی سرور واقعی `supabase/maintenance/secure-admin-accounts.sql` را اجرا کنید (حساب‌های تست را پاک و رمز مدیر را به
+  رمز جدید شما عوض می‌کند).
 - نقش‌ها **همیشه** در جدول جداگانهٔ `public.user_roles` — هرگز روی `profiles`.
 - تا وقتی برای پنل رمز گذاشته نشده، پنل بدون رمز باز است (`admin_open_mode()`؛ بخش ۶.۴).
 - گارد سمت کلاینت با `supabase.rpc('has_role', {...})` — گارد سمت سرور همیشه با RLS.
@@ -549,8 +551,9 @@ bun run build           # بیلد SSR + client
 ابزار migration داخل Lovable اجرا می‌شود. جزئیات جدول‌ها، RLS، کوئری هر جریان و
 داده‌های نمونه در [`docs/DATABASE.md`](docs/DATABASE.md).
 
-**حساب‌های تست (seed):** `test-user1@museum.local` / `test-mod@museum.local` /
-`test-admin2@museum.local` — همه با رمز `Test@12345`.
+**حساب‌های تست (seed):** `test-user1@museum.local` / `test-mod@museum.local` / `test-admin2@museum.local` فقط برای
+توسعهٔ محلی‌اند و رمزشان در migrationهای مخزن است؛ روی سرور واقعی باید پاک شوند
+(`supabase/maintenance/secure-admin-accounts.sql`).
 ادمین اصلی: `daneshavaran2@gmail.com`.
 
 **کیوسک ویندوزی:** مراحل چرخاندن صفحه، اجرای تمام‌صفحه، اجرای خودکار با ویندوز و
